@@ -49,6 +49,13 @@ async function fetchText(url) {
   return text
 }
 
+async function scheduleNotification(title, body) {
+  const notification = new Notification()
+  notification.title = title
+  notification.body = body
+  await notification.schedule()
+}
+
 try {
   const treeURL =
     `https://api.github.com/repos/${OWNER}/${REPO}/git/trees/${BRANCH}?recursive=1`
@@ -93,19 +100,13 @@ try {
     console.log(`Mis à jour : ${file.localPath}`)
   }
 
-  await Notification.schedule({
-    title: "Scriptable",
-    body: `${files.length} script(s) mis à jour depuis GitHub`
-  })
+  await scheduleNotification("Scriptable", `${files.length} script(s) mis à jour depuis GitHub`)
 
   console.log(`Terminé : ${files.length} fichier(s)`)
 } catch (error) {
   console.error(error)
 
-  await Notification.schedule({
-    title: "Échec de mise à jour Scriptable",
-    body: String(error.message || error)
-  })
+  await scheduleNotification("Échec de mise à jour Scriptable", String(error.message || error))
 
   throw error
 } finally {

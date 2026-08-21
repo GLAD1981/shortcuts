@@ -1,5 +1,9 @@
-const config = importModule("ExpenseConfig")
-const input = importModule("ExpenseInput")
+function loadModule(name) {
+  return typeof importModule === "function" ? importModule(name) : require(`./${name}`)
+}
+
+const config = loadModule("ExpenseConfig")
+const input = loadModule("ExpenseInput")
 
 function strictEncode(value) {
   return encodeURIComponent(value).replace(/[!'()*]/g, character =>
@@ -16,8 +20,18 @@ function buildExpenseUrl(object, amount, date) {
   return `${config.endpoint}?object=${strictEncode(object)}&amount=${strictEncode(amount)}&date=${strictEncode(date)}`
 }
 
-async function editExpense(seed) {
-  const alert = new Alert()
+function runtime(overrides = {}) {
+  return Object.assign({
+    getClipboard: () => Pasteboard.pasteString(),
+    createAlert: () => new Alert(),
+    createRequest: url => new Request(url),
+    createNotification: () => new Notification(),
+    today
+  }, overrides)
+}
+
+async function editExpense(seed, dependencies) {
+  const alert = dependencies.createAlert()
   alert.title = "Dépense commune"
   alert.message = "Vérifiez les champs avant l’enregistrement."
   alert.addTextField("Objet", seed.text)
@@ -29,18 +43,18 @@ async function editExpense(seed) {
 
   const amount = input.parseAmount(alert.textFieldValue(1))
   if (!amount.found) {
-    const error = new Alert()
+    const error = dependencies.createAlert()
     error.title = "Montant invalide"
     error.message = "Saisissez un montant, par exemple 12,50."
     error.addAction("OK")
     await error.presentAlert()
     return null
   }
-  return { object: input.trimText(alert.textFieldValue(0)), amount: amount.value, date: today() }
+  return { object: input.trimText(alert.textFieldValue(0)), amount: amount.value, date: dependencies.today() }
 }
 
-async function submitExpense(expense) {
-  const request = new Request(buildExpenseUrl(expense.object, expense.amount, expense.date))
+async function submitExpense(expense, dependencies) {
+  const request = dependencies.createRequest(buildExpenseUrl(expense.object, expense.amount, expense.date))
   request.timeoutInterval = 20
   const response = (await request.loadString()).trim()
   const status = request.response.statusCode
@@ -49,8 +63,8 @@ async function submitExpense(expense) {
   if (response !== "Dépense ajoutée.") throw new Error(response)
 }
 
-async function notifySuccess(expense) {
-  const notification = new Notification()
+async function notifySuccess(expense, dependencies) {
+  const notification = dependencies.createNotification()
   notification.title = "Dépense ajoutée"
   notification.body = `${expense.object || "Dépense"} — ${expense.amount} €\nTouchez pour ouvrir les comptes.`
   notification.sound = "complete"
@@ -59,16 +73,17 @@ async function notifySuccess(expense) {
   await notification.schedule()
 }
 
-async function run(shareSheetInput) {
-  const source = input.selectSource(shareSheetInput, Pasteboard.pasteString())
-  const expense = await editExpense(input.extractTextAndAmount(source))
+async function run(shareSheetInput, overrides) {
+  const dependencies = runtime(overrides)
+  const source = input.selectSource(shareSheetInput, dependencies.getClipboard())
+  const expense = await editExpense(input.extractTextAndAmount(source), dependencies)
   if (!expense) return { ok: false, cancelled: true }
   try {
-    await submitExpense(expense)
-    await notifySuccess(expense)
+    await submitExpense(expense, dependencies)
+    await notifySuccess(expense, dependencies)
     return { ok: true, expense }
   } catch (error) {
-    const alert = new Alert()
+    const alert = dependencies.createAlert()
     alert.title = "Dépense non ajoutée"
     alert.message = String(error.message || error)
     alert.addAction("OK")

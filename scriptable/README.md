@@ -8,3 +8,6 @@ ouvre la feuille des comptes.
 Dans Raccourcis : activez la feuille de partage pour le type Texte, puis ajoutez
 une seule action **Exécuter le script** ciblant `ShortcutRunner`, avec
 « Contenu du raccourci » comme entrée.
+
+Après une mise à jour, exécutez `ScriptableTests` dans Scriptable. Ce test ne
+contacte pas le serveur des comptes et ne crée pas de notification réelle.
