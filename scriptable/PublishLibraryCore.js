@@ -1,6 +1,6 @@
 // Variables used by Scriptable.
 // These must be at the very top of the file. Do not edit.
-// icon-color: gray; icon-glyph: magic;
+// icon-color: gray; icon-glyph: cloud-upload-alt;
 async function collectScriptFiles(fileManager, root, directory = root) {
   const files = []
   for (const name of fileManager.listContents(directory)) {

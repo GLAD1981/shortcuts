@@ -1,6 +1,6 @@
 // Variables used by Scriptable.
 // These must be at the very top of the file. Do not edit.
-// icon-color: brown; icon-glyph: magic;
+// icon-color: gray; icon-glyph: money-bill-alt;
 function trimText(value) {
   return String(value == null ? "" : value)
     .replace(/\u00A0|\u202F/g, " ")
