@@ -1,9 +1,8 @@
 // Variables used by Scriptable.
 // These must be at the very top of the file. Do not edit.
 // icon-color: purple; icon-glyph: vial;
-const input = importModule("ExpenseInput")
-const sharedExpenses = importModule("SharedExpenses")
 const publisher = importModule("PublishLibraryCore")
+const comptesCommuns = importModule("ComptesCommuns")
 
 function assert(condition, message) {
   if (!condition) throw new Error(message)
@@ -20,26 +19,14 @@ async function run() {
     }
   }
 
-  await test("Analyse des montants AHK", () => {
-    const expense = input.extractTextAndAmount("Courses 1 234,50 €")
-    assert(expense.text === "Courses", "Objet non extrait")
-    assert(expense.amount === "1234,50", "Montant français non normalisé")
+  await test("Préparation des comptes communs", () => {
+    const expense = comptesCommuns.prepare("Courses 1 234,50 €", "Ignoré 99")
+    assert(expense.objet === "Courses", "Objet non extrait")
+    assert(expense.montant === "1234,50", "Montant non normalisé")
   })
-  await test("Entrée de partage prioritaire", () => {
-    assert(input.selectSource("Courses 12,50", "Ignoré 99") === "Courses 12,50", "Priorité incorrecte")
-  })
-  await test("Flux de dépense sans effet réel", async () => {
+  await test("Envoi des comptes communs sans effet réel", async () => {
     const state = { requestUrl: "", notifications: [] }
     const runtime = {
-      getClipboard: () => "Presse-papiers 99",
-      createAlert: () => {
-        const fields = []
-        return {
-          addTextField(_, value) { fields.push(value); return { setDecimalPadKeyboard() {} } },
-          addAction() {}, addCancelAction() {}, async presentAlert() { return 0 },
-          textFieldValue(index) { return fields[index] }
-        }
-      },
       createRequest: url => ({ response: { statusCode: 200 }, async loadString() { state.requestUrl = url; return "Dépense ajoutée." } }),
       createNotification: () => {
         const notification = { addAction() {}, async schedule() {} }
@@ -48,7 +35,7 @@ async function run() {
       },
       today: () => "2026-08-22"
     }
-    const result = await sharedExpenses.run("Courses 12,50", runtime)
+    const result = await comptesCommuns.run({ objet: "Courses", montant: "12,50" }, runtime)
     assert(result.ok, "Le flux a échoué")
     assert(/object=Courses&amount=12%2C50/.test(state.requestUrl), "Requête incorrecte")
     assert(state.notifications.length === 1, "Notification absente")
