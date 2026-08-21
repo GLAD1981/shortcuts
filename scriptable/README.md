@@ -12,7 +12,8 @@ une seule action **Exécuter le script** ciblant `ShortcutRunner`, avec
 Après une mise à jour, exécutez `ScriptableTests` dans Scriptable. Ce test ne
 contacte pas le serveur des comptes et ne crée pas de notification réelle.
 
-`UpdateLibrary` exécute aussi cette suite automatiquement après l'installation.
+`UpdateLibrary` exécute aussi `ScriptableTests` et affiche son résultat après
+l'installation.
 
 `PublishLibrary` publie tous les scripts `.js` du dossier Scriptable dans un
 seul commit GitHub. Au premier lancement, fournissez un fine-grained token

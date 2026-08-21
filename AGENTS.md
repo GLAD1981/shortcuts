@@ -1,7 +1,7 @@
 # Règles du projet
 
 À chaque modification de code, ajouter ou adapter les tests pertinents dans
-`scriptable/ScriptableTestSuite.js` lorsque le comportement peut être vérifié
+`scriptable/ScriptableTests.js` lorsque le comportement peut être vérifié
 sans effet externe. Exécuter ensuite `ScriptableTests` dans Scriptable lors de
 toute validation sur iPhone.
 
