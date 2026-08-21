@@ -13,6 +13,10 @@ const REMOTE_FOLDER = "scriptable"
 const fm = FileManager.iCloud()
 const destinationRoot = fm.documentsDirectory()
 
+function log(message) {
+  console.log(`[UpdateLibrary] ${message}`)
+}
+
 function destinationPath(relativePath) {
   return fm.joinPath(destinationRoot, relativePath)
 }
@@ -49,10 +53,19 @@ async function fetchText(url) {
   return text
 }
 
+async function scheduleNotification(title, body) {
+  const notification = new Notification()
+  notification.title = title
+  notification.body = body
+  await notification.schedule()
+}
+
 try {
+  log(`Début de mise à jour depuis ${OWNER}/${REPO}@${BRANCH}`)
   const treeURL =
     `https://api.github.com/repos/${OWNER}/${REPO}/git/trees/${BRANCH}?recursive=1`
 
+  log("Lecture de l'arborescence GitHub")
   const tree = await fetchJSON(treeURL)
 
   if (!Array.isArray(tree.tree)) {
@@ -70,9 +83,9 @@ try {
       localPath: item.path.substring(REMOTE_FOLDER.length + 1)
     }))
 
-  if (files.length === 0) {
-    throw new Error(`Aucun fichier .js trouvé dans ${REMOTE_FOLDER}/`)
-  }
+  log(`${files.length} script(s) détecté(s) dans ${REMOTE_FOLDER}/`)
+  if (files.length === 0)
+    throw new Error(`Aucun script .js trouvé dans ${REMOTE_FOLDER}/ sur ${BRANCH}`)
 
   for (const file of files) {
     const rawURL =
@@ -81,6 +94,7 @@ try {
         .map(encodeURIComponent)
         .join("/")}`
 
+    log(`Téléchargement : ${file.remotePath}`)
     const source = await fetchText(rawURL)
     const localPath = destinationPath(file.localPath)
     const directory = parentDirectory(localPath)
@@ -90,22 +104,20 @@ try {
     }
 
     fm.writeString(localPath, source)
-    console.log(`Mis à jour : ${file.localPath}`)
+    log(`Écrit : ${file.localPath}`)
   }
 
-  await Notification.schedule({
-    title: "Scriptable",
-    body: `${files.length} script(s) mis à jour depuis GitHub`
-  })
+  await scheduleNotification("Scriptable", `${files.length} script(s) mis à jour depuis GitHub`)
 
-  console.log(`Terminé : ${files.length} fichier(s)`)
+  log(`Terminé : ${files.length} fichier(s)`)
 } catch (error) {
-  console.error(error)
-
-  await Notification.schedule({
-    title: "Échec de mise à jour Scriptable",
-    body: String(error.message || error)
-  })
+  const message = String(error.message || error)
+  console.error(`[UpdateLibrary] Échec : ${message}`)
+  try {
+    await scheduleNotification("Échec de mise à jour Scriptable", message)
+  } catch (notificationError) {
+    console.error(`[UpdateLibrary] Échec de notification : ${String(notificationError.message || notificationError)}`)
+  }
 
   throw error
 } finally {
