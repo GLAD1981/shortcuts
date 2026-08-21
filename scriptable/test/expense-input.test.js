@@ -19,6 +19,9 @@ test("ExpenseInput", async (suite) => {
   await suite.test("extracts a trailing amount only", () => {
     assert.deepStrictEqual(input.extractTextAndAmount("Courses 12,50"), { text: "Courses", amount: "12,50" })
   })
+  await suite.test("keeps thousands separators with the trailing amount", () => {
+    assert.deepStrictEqual(input.extractTextAndAmount("Courses 1 234,50 €"), { text: "Courses", amount: "1234,50" })
+  })
   await suite.test("keeps free text unchanged", () => {
     assert.deepStrictEqual(input.extractTextAndAmount("Abonnement mensuel"), { text: "Abonnement mensuel", amount: "" })
   })
