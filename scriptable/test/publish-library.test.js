@@ -1,6 +1,6 @@
 const assert = require("assert")
 const test = require("node:test")
-const publisher = require("../PublishLibraryCore")
+const publisher = require("../PublishLibrary")
 
 test("collectScriptFiles recursively keeps JavaScript files", async () => {
   const contents = {

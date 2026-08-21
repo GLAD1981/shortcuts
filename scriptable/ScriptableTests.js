@@ -1,7 +1,7 @@
 // Variables used by Scriptable.
 // These must be at the very top of the file. Do not edit.
 // icon-color: purple; icon-glyph: vial;
-const publisher = importModule("PublishLibraryCore")
+const publisher = importModule("PublishLibrary")
 const comptesCommuns = importModule("ComptesCommuns")
 
 function assert(condition, message) {
