@@ -7,3 +7,9 @@ toute validation sur iPhone.
 
 Conserver également les tests Node sous `scriptable/test/` pour les fonctions
 pures et les régressions reproductibles hors iOS.
+
+Les commentaires d'en-tête ajoutés par Scriptable (notamment `icon-color` et
+`icon-glyph`) sont autoritaires : ne jamais les modifier ni les supprimer, et
+prendre la version publiée lorsqu'elle est disponible. Lors d'un diagnostic,
+une ligne signalée par Scriptable est décalée vers le bas dans la source du
+dépôt d'autant de lignes d'en-tête ou de mise en forme présentes avant le code.
