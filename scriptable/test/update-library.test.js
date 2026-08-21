@@ -10,5 +10,7 @@ test("UpdateLibrary schedules notifications through an instance", () => {
   assert.match(source, /Début de mise à jour/)
   assert.match(source, /\[UpdateLibrary\] Échec de notification/)
   assert.match(source, /Aucun script \.js trouvé dans/)
-  assert.match(source, /importModule\("ScriptableTestSuite"\)\.run\(\)/)
+  assert.doesNotMatch(source, /ScriptableTestSuite/)
+  assert.match(source, /const tests = importModule\("ScriptableTests"\)/)
+  assert.match(source, /await tests\.present\(testResult\)/)
 })

@@ -107,7 +107,9 @@ try {
     log(`Écrit : ${file.localPath}`)
   }
 
-  const testResult = await importModule("ScriptableTestSuite").run()
+  const tests = importModule("ScriptableTests")
+  const testResult = await tests.run()
+  await tests.present(testResult)
   log(`Tests Scriptable : ${testResult.ok ? "PASS" : "FAIL"}`)
   if (!testResult.ok) throw new Error("Les tests Scriptable ont échoué")
 
