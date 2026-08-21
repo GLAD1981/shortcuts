@@ -8,7 +8,7 @@ test("collectScriptFiles recursively keeps JavaScript files", async () => {
     "root/nested": ["Two.js"]
   }
   const fm = {
-    contentsOfDirectory: path => contents[path],
+    listContents: path => contents[path],
     joinPath: (left, right) => `${left}/${right}`,
     isDirectory: path => Object.hasOwn(contents, path),
     async downloadFileFromiCloud() {},

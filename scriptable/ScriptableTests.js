@@ -68,6 +68,18 @@ async function run() {
     assert(result.sha === "commit", "Commit absent")
     assert(paths.filter(call => call.path === "git/commits").length === 1, "Plusieurs commits créés")
   })
+  await test("Parcours des scripts Scriptable", async () => {
+    const contents = { root: ["One.js", "nested"], "root/nested": ["Two.js"] }
+    const fileManager = {
+      listContents: path => contents[path],
+      joinPath: (left, right) => `${left}/${right}`,
+      isDirectory: path => Object.hasOwn(contents, path),
+      async downloadFileFromiCloud() {},
+      readString: path => `// ${path}`
+    }
+    const files = await publisher.collectScriptFiles(fileManager, "root")
+    assert(files.length === 2, "Les scripts n'ont pas été parcourus")
+  })
   return { ok: results.every(result => result.ok), results }
 }
 
