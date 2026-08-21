@@ -107,7 +107,12 @@ try {
     log(`Écrit : ${file.localPath}`)
   }
 
+  log("Chargement de ScriptableTests")
   const tests = importModule("ScriptableTests")
+  if (!tests || typeof tests.run !== "function" || typeof tests.present !== "function") {
+    throw new Error("Module ScriptableTests invalide")
+  }
+  log("Exécution des tests Scriptable")
   const testResult = await tests.run()
   await tests.present(testResult)
   log(`Tests Scriptable : ${testResult.ok ? "PASS" : "FAIL"}`)
