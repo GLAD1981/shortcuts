@@ -107,8 +107,11 @@ try {
     log(`Écrit : ${file.localPath}`)
   }
 
-  await scheduleNotification("Scriptable", `${files.length} script(s) mis à jour depuis GitHub`)
+  const testResult = await importModule("ScriptableTestSuite").run()
+  log(`Tests Scriptable : ${testResult.ok ? "PASS" : "FAIL"}`)
+  if (!testResult.ok) throw new Error("Les tests Scriptable ont échoué")
 
+  await scheduleNotification("Scriptable", `${files.length} script(s) mis à jour depuis GitHub`)
   log(`Terminé : ${files.length} fichier(s)`)
 } catch (error) {
   const message = String(error.message || error)
