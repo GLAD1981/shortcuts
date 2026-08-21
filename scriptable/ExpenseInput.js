@@ -31,11 +31,16 @@ function extractTextAndAmount(value) {
   const wholeAmount = parseAmount(text)
   if (wholeAmount.found) return { text: "", amount: wholeAmount.value }
 
-  const parts = /^(.*\S)\s+(.+)$/.exec(text)
-  if (parts) {
-    const trailingAmount = parseAmount(parts[2])
+  const trailingPatterns = [
+    /(?:^|\s)([+-]?(?:\d{1,3}(?:[ .]\d{3})+|\d+)(?:,\d{1,2})?\s*€?)$/,
+    /(?:^|\s)([+-]?(?:\d{1,3}(?:[, ]\d{3})+|\d+)(?:\.\d{1,2})?\s*€?)$/
+  ]
+  for (const pattern of trailingPatterns) {
+    const match = pattern.exec(text)
+    if (!match) continue
+    const trailingAmount = parseAmount(match[1])
     if (trailingAmount.found) {
-      return { text: trimText(parts[1]), amount: trailingAmount.value }
+      return { text: trimText(text.slice(0, match.index)), amount: trailingAmount.value }
     }
   }
   return { text, amount: "" }
