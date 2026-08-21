@@ -1,6 +1,6 @@
 async function collectScriptFiles(fileManager, root, directory = root) {
   const files = []
-  for (const name of fileManager.contentsOfDirectory(directory)) {
+  for (const name of fileManager.listContents(directory)) {
     const path = fileManager.joinPath(directory, name)
     if (fileManager.isDirectory(path)) {
       files.push(...await collectScriptFiles(fileManager, root, path))
