@@ -13,3 +13,10 @@ Les commentaires d'en-tête ajoutés par Scriptable (notamment `icon-color` et
 prendre la version publiée lorsqu'elle est disponible. Lors d'un diagnostic,
 une ligne signalée par Scriptable est décalée vers le bas dans la source du
 dépôt d'autant de lignes d'en-tête ou de mise en forme présentes avant le code.
+
+Pour les raccourcis iOS, l'interface et la saisie restent dans Raccourcis ;
+Scriptable prépare les données, les transmet par dictionnaire, puis réalise
+les requêtes et notifications. Préférer un script d'entrée unique par
+fonctionnalité. Extraire un module utilitaire uniquement lorsqu'il est utile
+à au moins deux raccourcis, puis réutiliser ce même module plutôt que dupliquer
+sa logique.
