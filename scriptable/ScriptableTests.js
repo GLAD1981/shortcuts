@@ -84,7 +84,10 @@ async function present(result) {
 module.exports = { run, present }
 
 if (Script.name() === "ScriptableTests") {
-  const result = await run()
-  await present(result)
-  Script.setShortcutOutput(result)
+  run().then(async result => {
+    await present(result)
+    Script.setShortcutOutput(result)
+  }).catch(error => {
+    console.error(`[ScriptableTests] Échec : ${String(error.message || error)}`)
+  })
 }
