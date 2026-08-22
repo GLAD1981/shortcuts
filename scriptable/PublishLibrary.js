@@ -54,15 +54,16 @@ async function collectScriptFiles(fileManager, root, directory = root) {
       files.push(...await collectScriptFiles(fileManager, root, path))
       continue
     }
-    if (!name.endsWith(".js")) continue
+    const relativePath = path.slice(root.length + 1)
+    if (!name.endsWith(".js") && relativePath !== "Transfer.txt") continue
     await fileManager.downloadFileFromiCloud(path)
-    files.push({ path: path.slice(root.length + 1), content: fileManager.readString(path) })
+    files.push({ path: relativePath, content: fileManager.readString(path) })
   }
   return files
 }
 
 async function publish(api, files, branch) {
-  if (files.length === 0) throw new Error("Aucun script JavaScript à publier")
+  if (files.length === 0) throw new Error("Aucun fichier Scriptable à publier")
 
   const reference = await api.request("GET", `git/ref/heads/${branch}`)
   const parentSha = reference.object.sha
@@ -99,12 +100,12 @@ async function run() {
     const root = fileManager.documentsDirectory()
     const allFiles = await collectScriptFiles(fileManager, root)
     const files = allFiles.filter(file => file.path !== "UpdateLibrary.js")
-    log(`${files.length} script(s) à publier`)
+    log(`${files.length} fichier(s) à publier`)
     const result = await publish(createApi(await getToken()), files, BRANCH)
     log(`Commit publié : ${result.sha}`)
     const alert = new Alert()
     alert.title = "GitHub mis à jour"
-    alert.message = `${result.count} script(s) publiés dans le commit ${result.sha.slice(0, 7)}.`
+    alert.message = `${result.count} fichier(s) publiés dans le commit ${result.sha.slice(0, 7)}.`
     alert.addAction("OK")
     await alert.presentAlert()
     return { ok: true, ...result }

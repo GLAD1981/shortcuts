@@ -23,9 +23,23 @@ test("prepare extracts a number received from the share sheet", () => {
   )
 })
 
+test("run records the share input and clipboard in the transfer log", async () => {
+  let transfer = ""
+  const result = await comptes.run("", {
+    getClipboard: () => "Parking 12,50",
+    appendTransfer: line => { transfer = line }
+  })
+
+  assert.deepStrictEqual(result, { ok: true, objet: "Parking", montant: "12,50" })
+  assert.match(transfer, /"shareInput":""/)
+  assert.match(transfer, /"clipboard":"Parking 12,50"/)
+  assert.match(transfer, /"source":"clipboard"/)
+})
+
 test("run returns prepared fields for the native Shortcut prompts", async () => {
   const result = await comptes.run("Courses 12,50", {
-    getClipboard: () => "Ignoré 99"
+    getClipboard: () => "Ignoré 99",
+    appendTransfer() {}
   })
 
   assert.deepStrictEqual(result, { ok: true, objet: "Courses", montant: "12,50" })

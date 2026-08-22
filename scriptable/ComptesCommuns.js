@@ -2,6 +2,7 @@
 // These must be at the very top of the file. Do not edit.
 // icon-color: orange; icon-glyph: money-bill-alt;
 const ENDPOINT = "https://script.google.com/macros/s/AKfycbyXqRY95_U1bTUxKXiOC0NicLGA3v5DU8xrRjYVRnGzb5UdMoJWuMdqFYDXkt6QokHu/exec"
+const TRANSFER_FILE = "Transfer.txt"
 
 function trimText(value) {
   return String(value == null ? "" : value).replace(/\u00A0|\u202F/g, " ").trim()
@@ -59,10 +60,18 @@ function today() {
   return formatter.string(new Date())
 }
 
+function appendTransfer(line) {
+  const fileManager = FileManager.iCloud()
+  const path = fileManager.joinPath(fileManager.documentsDirectory(), TRANSFER_FILE)
+  const previous = fileManager.fileExists(path) ? fileManager.readString(path) : ""
+  fileManager.writeString(path, `${previous}${line}\n`)
+}
+
 function runtime(overrides = {}) {
   return Object.assign({
     getClipboard: () => Pasteboard.pasteString(),
     createRequest: url => new Request(url),
+    appendTransfer,
     today
   }, overrides)
 }
@@ -100,7 +109,22 @@ function isSubmissionPayload(parameter) {
 async function run(parameter, overrides) {
   if (isSubmissionPayload(parameter)) return submit(parameter, overrides)
   const dependencies = runtime(overrides)
-  return { ok: true, ...prepare(parameter, dependencies.getClipboard()) }
+  const clipboard = dependencies.getClipboard()
+  const sharedText = toText(parameter)
+  const prepared = prepare(parameter, clipboard)
+  try {
+    dependencies.appendTransfer(JSON.stringify({
+      date: new Date().toISOString(),
+      shareInputType: typeof parameter,
+      shareInput: sharedText,
+      clipboard: trimText(clipboard),
+      source: trimText(sharedText) ? "share" : "clipboard",
+      prepared
+    }))
+  } catch (error) {
+    console.error(`[ComptesCommuns] Journal de transfert : ${String(error.message || error)}`)
+  }
+  return { ok: true, ...prepared }
 }
 
 module.exports = { prepare, submit, run }
