@@ -9,9 +9,11 @@ const OWNER = "GLAD1981"
 const REPO = "shortcuts"
 const BRANCH = "main"
 const REMOTE_FOLDER = "scriptable"
+const MANIFEST_NAME = "ShortcutsLibraryManifest.json"
 
 const fm = FileManager.iCloud()
 const destinationRoot = fm.documentsDirectory()
+const manifestPath = fm.joinPath(destinationRoot, MANIFEST_NAME)
 
 function log(message) {
   console.log(`[UpdateLibrary] ${message}`)
@@ -24,6 +26,17 @@ function destinationPath(relativePath) {
 function parentDirectory(path) {
   const index = path.lastIndexOf("/")
   return index === -1 ? destinationRoot : path.substring(0, index)
+}
+
+function readManifest() {
+  if (!fm.fileExists(manifestPath)) return []
+  try {
+    const manifest = JSON.parse(fm.readString(manifestPath))
+    return Array.isArray(manifest.files) ? manifest.files.filter(path => typeof path === "string") : []
+  } catch (error) {
+    log(`Manifeste ignoré : ${String(error.message || error)}`)
+    return []
+  }
 }
 
 async function fetchJSON(url) {
@@ -87,6 +100,8 @@ try {
   if (files.length === 0)
     throw new Error(`Aucun script .js trouvé dans ${REMOTE_FOLDER}/ sur ${BRANCH}`)
 
+  const previousFiles = readManifest()
+  const remotePaths = new Set(files.map(file => file.localPath))
   for (const file of files) {
     const rawURL =
       `https://raw.githubusercontent.com/${OWNER}/${REPO}/${BRANCH}/${file.remotePath
@@ -106,6 +121,15 @@ try {
     fm.writeString(localPath, source)
     log(`Écrit : ${file.localPath}`)
   }
+
+  const obsoleteFiles = previousFiles.filter(path => !remotePaths.has(path))
+  for (const relativePath of obsoleteFiles) {
+    const localPath = destinationPath(relativePath)
+    if (!fm.fileExists(localPath)) continue
+    fm.remove(destinationPath(relativePath))
+    log(`Supprimé : ${relativePath}`)
+  }
+  fm.writeString(manifestPath, JSON.stringify({ files: files.map(file => file.localPath) }))
 
   log("Chargement de ScriptableTests")
   const tests = importModule("ScriptableTests")
