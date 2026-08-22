@@ -16,6 +16,38 @@ test("prepare uses the clipboard when share input is blank", () => {
   )
 })
 
+test("run asks for the prepared fields then submits the confirmed expense", async () => {
+  const state = { textConfiguration: null, numberConfiguration: null, requestUrl: "", notifications: 0 }
+  const result = await comptes.run("Courses 12,50", {
+    getClipboard: () => "Ignoré 99",
+    inputs: {
+      async text(configuration) {
+        state.textConfiguration = configuration
+        return "Courses bio"
+      },
+      async number(configuration) {
+        state.numberConfiguration = configuration
+        return "13,20"
+      }
+    },
+    createRequest: url => ({
+      response: { statusCode: 200 },
+      async loadString() {
+        state.requestUrl = url
+        return "Dépense ajoutée."
+      }
+    }),
+    createNotification: () => ({ addAction() {}, async schedule() { state.notifications++ } }),
+    today: () => "2026-08-22"
+  })
+
+  assert.deepStrictEqual(state.textConfiguration, { object: "Objet", default: "Courses", multiLine: false })
+  assert.deepStrictEqual(state.numberConfiguration, { object: "Montant", default: "12,50", negative: false, decimals: true })
+  assert.strictEqual(result.ok, true)
+  assert.match(state.requestUrl, /object=Courses%20bio&amount=13%2C20&date=2026-08-22/)
+  assert.strictEqual(state.notifications, 1)
+})
+
 test("run submits a confirmed shortcut dictionary without Alert", async () => {
   const state = { requestUrl: "", notifications: 0 }
   const result = await comptes.run({ objet: "Courses", montant: "12,50" }, {

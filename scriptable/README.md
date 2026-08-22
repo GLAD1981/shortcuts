@@ -1,24 +1,32 @@
 # Dépense commune
 
-`ComptesCommuns.js` est appelé deux fois par le raccourci iOS. Le premier appel
-donne priorité au texte reçu de la feuille de partage, puis utilise le
-presse-papiers et renvoie un dictionnaire `{ objet, montant }`. Le second reçoit
-le dictionnaire confirmé, enregistre la dépense et affiche une notification qui
-ouvre la feuille des comptes.
+`ComptesCommuns.js` est appelé une seule fois par le raccourci iOS. Il donne
+priorité au texte reçu de la feuille de partage, puis utilise le presse-papiers,
+préremplit les deux saisies, enregistre la dépense et affiche une notification
+qui ouvre la feuille des comptes.
 
-Dans Raccourcis : activez la feuille de partage pour le type Texte, puis ajoutez
-dans cet ordre :
+Le raccourci principal **Comptes communs** ne contient plus qu’une action :
 
-1. **Exécuter le script** `ComptesCommuns` avec « Contenu du raccourci ».
-2. **Obtenir la valeur du dictionnaire** `objet`, puis **Demander du texte**
-   « Objet » avec cette valeur comme réponse par défaut.
-3. **Obtenir la valeur du dictionnaire** `montant`, puis **Demander un nombre**
-   « Montant » avec cette valeur comme réponse par défaut.
-4. **Dictionnaire** avec les clés `objet` et `montant` et les deux réponses.
-5. **Exécuter le script** `ComptesCommuns` avec ce dictionnaire.
+1. Activez sa feuille de partage pour le type Texte.
+2. Ajoutez **Exécuter le script** `ComptesCommuns` avec « Contenu du
+   raccourci ».
 
-Retirez les actions d'encodage URL, de construction du texte URL, d'obtention du
-contenu et de notification : le second appel Scriptable les remplace.
+Les deux mini-raccourcis suivants sont créés une fois et réutilisés par les
+autres fonctionnalités. Ils reçoivent un dictionnaire JSON, affichent la saisie
+native, puis renvoient la réponse texte à Scriptable :
+
+- `textInputbox` : « Obtenir le dictionnaire de l’entrée de raccourci », puis
+  obtient les clés `object`, `default`, `multiLine` et les branche sur
+  « Demander Texte ».
+- `numberInputBox` : même principe avec les clés `object`, `default`,
+  `negative`, `decimals` et « Demander Nombre ».
+
+`ShortcutInputs.js` encapsule l’appel de ces deux raccourcis via leur URL de
+retour. Les autres scripts Scriptable doivent réutiliser ce module pour les
+saisies texte et numériques, au lieu de recréer des dialogues semblables.
+
+Retirez les anciennes actions d'encodage URL, de construction du texte URL,
+d'obtention du contenu et de notification : Scriptable les remplace.
 
 Après une mise à jour, exécutez `ScriptableTests` dans Scriptable. Ce test ne
 contacte pas le serveur des comptes et ne crée pas de notification réelle.
