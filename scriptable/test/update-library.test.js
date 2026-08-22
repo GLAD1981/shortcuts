@@ -11,10 +11,8 @@ test("UpdateLibrary schedules notifications through an instance", () => {
   assert.match(source, /\[UpdateLibrary\] Échec de notification/)
   assert.match(source, /Aucun script \.js trouvé dans/)
   assert.doesNotMatch(source, /ScriptableTestSuite/)
-  assert.match(source, /const tests = importModule\("ScriptableTests"\)/)
-  assert.match(source, /Chargement de ScriptableTests/)
-  assert.match(source, /Module ScriptableTests invalide/)
-  assert.match(source, /await tests\.present\(testResult\)/)
+  assert.doesNotMatch(source, /importModule\("ScriptableTests"\)/)
+  assert.doesNotMatch(source, /Exécution des tests Scriptable/)
 })
 
 test("UpdateLibrary removes only files recorded in its previous manifest", () => {

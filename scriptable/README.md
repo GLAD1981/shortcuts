@@ -29,11 +29,19 @@ présenter d’alerte lorsqu’il est appelé par Siri.
 Après une mise à jour, exécutez `ScriptableTests` dans Scriptable. Ce test ne
 contacte pas le serveur des comptes et ne crée pas de notification réelle.
 
-`UpdateLibrary` exécute aussi `ScriptableTests` et affiche son résultat après
-l'installation.
+`UpdateLibrary` installe les scripts sans lancer les tests. Exécutez
+`ScriptableTests` manuellement lorsque vous souhaitez les vérifier.
 
-`PublishLibrary` publie tous les scripts `.js` du dossier Scriptable dans un
-seul commit GitHub. Au premier lancement, fournissez un fine-grained token
+## Journal de transfert
+
+Lors de la préparation d’une dépense, `ComptesCommuns` ajoute une ligne dans
+`Transfer.txt` avec l’entrée reçue, le presse-papiers et la source retenue.
+Après une reproduction, exécutez `PublishLibrary` pour publier ce fichier dans
+GitHub, puis prévenez Codex. Ce fichier peut contenir le presse-papiers : ne
+l’utilisez pas avec des données sensibles.
+
+`PublishLibrary` publie les scripts `.js` et `Transfer.txt` du dossier
+Scriptable dans un seul commit GitHub. Au premier lancement, fournissez un fine-grained token
 GitHub limité au dépôt, avec la permission **Contents: Read and write** ; il
 sera enregistré dans le Trousseau Scriptable. `UpdateLibrary.js` reste local et
 est volontairement exclu de la publication pour ne pas se réécrire pendant son

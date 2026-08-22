@@ -131,17 +131,6 @@ try {
   }
   fm.writeString(manifestPath, JSON.stringify({ files: files.map(file => file.localPath) }))
 
-  log("Chargement de ScriptableTests")
-  const tests = importModule("ScriptableTests")
-  if (!tests || typeof tests.run !== "function" || typeof tests.present !== "function") {
-    throw new Error("Module ScriptableTests invalide")
-  }
-  log("Exécution des tests Scriptable")
-  const testResult = await tests.run()
-  await tests.present(testResult)
-  log(`Tests Scriptable : ${testResult.ok ? "PASS" : "FAIL"}`)
-  if (!testResult.ok) throw new Error("Les tests Scriptable ont échoué")
-
   await scheduleNotification("Scriptable", `${files.length} script(s) mis à jour depuis GitHub`)
   log(`Terminé : ${files.length} fichier(s)`)
 } catch (error) {

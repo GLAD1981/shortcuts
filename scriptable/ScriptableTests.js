@@ -29,6 +29,14 @@ async function run() {
     assert(expense.objet === "", "Objet inattendu")
     assert(expense.montant === "1", "Montant numérique ignoré")
   })
+  await test("Journal de transfert des comptes communs", async () => {
+    let transfer = ""
+    await comptesCommuns.run("", {
+      getClipboard: () => "Parking 12,50",
+      appendTransfer: line => { transfer = line }
+    })
+    assert(transfer.includes('"source":"clipboard"'), "Source presse-papiers absente")
+  })
   await test("Envoi des comptes communs sans effet réel", async () => {
     const state = { requestUrl: "" }
     const runtime = {

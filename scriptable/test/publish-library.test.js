@@ -2,9 +2,9 @@ const assert = require("assert")
 const test = require("node:test")
 const publisher = require("../PublishLibrary")
 
-test("collectScriptFiles recursively keeps JavaScript files", async () => {
+test("collectScriptFiles recursively keeps JavaScript files and Transfer.txt", async () => {
   const contents = {
-    root: ["One.js", "nested", "README.md"],
+    root: ["One.js", "Transfer.txt", "nested", "README.md"],
     "root/nested": ["Two.js"]
   }
   const fm = {
@@ -19,6 +19,7 @@ test("collectScriptFiles recursively keeps JavaScript files", async () => {
 
   assert.deepStrictEqual(files, [
     { path: "One.js", content: "// root/One.js" },
+    { path: "Transfer.txt", content: "// root/Transfer.txt" },
     { path: "nested/Two.js", content: "// root/nested/Two.js" }
   ])
 })
