@@ -1,9 +1,7 @@
 // Variables used by Scriptable.
 // These must be at the very top of the file. Do not edit.
 // icon-color: orange; icon-glyph: money-bill-alt;
-const shortcutInputs = typeof importModule === "function" ? importModule("ShortcutInputs") : require("./ShortcutInputs")
 const ENDPOINT = "https://script.google.com/macros/s/AKfycbyXqRY95_U1bTUxKXiOC0NicLGA3v5DU8xrRjYVRnGzb5UdMoJWuMdqFYDXkt6QokHu/exec"
-const SHEET_URL = "https://docs.google.com/spreadsheets/d/1FYMtigzGJMiEN2PoS3MttShdzJ75mY3lzaF5u_7PCeU/edit#gid=0"
 
 function trimText(value) {
   return String(value == null ? "" : value).replace(/\u00A0|\u202F/g, " ").trim()
@@ -64,24 +62,12 @@ function runtime(overrides = {}) {
   return Object.assign({
     getClipboard: () => Pasteboard.pasteString(),
     createRequest: url => new Request(url),
-    createNotification: () => new Notification(),
-    inputs: shortcutInputs,
     today
   }, overrides)
 }
 
 function buildExpenseUrl(objet, montant, date) {
   return `${ENDPOINT}?object=${strictEncode(objet)}&amount=${strictEncode(montant)}&date=${strictEncode(date)}`
-}
-
-async function notifySuccess(expense, dependencies) {
-  const notification = dependencies.createNotification()
-  notification.title = "Dépense ajoutée"
-  notification.body = `${expense.objet || "Dépense"} — ${expense.montant} €\nTouchez pour ouvrir les comptes.`
-  notification.sound = "complete"
-  notification.openURL = SHEET_URL
-  notification.addAction("Ouvrir les comptes", SHEET_URL)
-  await notification.schedule()
 }
 
 async function submit(payload, overrides) {
@@ -98,7 +84,6 @@ async function submit(payload, overrides) {
     if (status !== 200) throw new Error(`HTTP ${status || "inconnu"}`)
     if (response !== "Dépense ajoutée.") throw new Error(response || "Réponse serveur vide")
     const expense = { objet, montant: amount.value }
-    await notifySuccess(expense, dependencies)
     return { ok: true, ...expense }
   } catch (error) {
     return { ok: false, objet, montant: amount.value, erreur: String(error.message || error) }
@@ -114,10 +99,7 @@ function isSubmissionPayload(parameter) {
 async function run(parameter, overrides) {
   if (isSubmissionPayload(parameter)) return submit(parameter, overrides)
   const dependencies = runtime(overrides)
-  const prepared = prepare(parameter, dependencies.getClipboard())
-  const objet = await dependencies.inputs.text({ object: "Objet", default: prepared.objet, multiLine: false })
-  const montant = await dependencies.inputs.number({ object: "Montant", default: prepared.montant, negative: false, decimals: true })
-  return submit({ objet, montant }, dependencies)
+  return { ok: true, ...prepare(parameter, dependencies.getClipboard()) }
 }
 
 module.exports = { prepare, submit, run }

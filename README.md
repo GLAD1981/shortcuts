@@ -15,8 +15,8 @@ Pushcut Pro est disponible pour ce projet. Il peut être utilisé pour déclench
 
 ## Convention Scriptable
 
-Chaque fonctionnalité utilise un script Scriptable d'entrée unique. Les saisies
-restent des raccourcis iOS natifs ; les scripts les appellent via le module
-partagé `ShortcutInputs.js` et reçoivent leur réponse par dictionnaire/URL de
-retour. Réutiliser les mêmes mini-raccourcis et utilitaires plutôt que dupliquer
-leur logique.
+Chaque fonctionnalité utilise un script Scriptable d'entrée unique. Les
+raccourcis iOS assurent leur interface et leurs saisies natives ; Scriptable
+prépare les données et exécute les requêtes externes. Réutiliser les mêmes
+utilitaires lorsqu’ils servent à plusieurs raccourcis, plutôt que dupliquer leur
+logique.
