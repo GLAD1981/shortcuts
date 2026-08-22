@@ -1,6 +1,7 @@
 // Variables used by Scriptable.
 // These must be at the very top of the file. Do not edit.
 // icon-color: orange; icon-glyph: money-bill-alt;
+const shortcutInputs = typeof importModule === "function" ? importModule("ShortcutInputs") : require("./ShortcutInputs")
 const ENDPOINT = "https://script.google.com/macros/s/AKfycbyXqRY95_U1bTUxKXiOC0NicLGA3v5DU8xrRjYVRnGzb5UdMoJWuMdqFYDXkt6QokHu/exec"
 const SHEET_URL = "https://docs.google.com/spreadsheets/d/1FYMtigzGJMiEN2PoS3MttShdzJ75mY3lzaF5u_7PCeU/edit#gid=0"
 
@@ -64,6 +65,7 @@ function runtime(overrides = {}) {
     getClipboard: () => Pasteboard.pasteString(),
     createRequest: url => new Request(url),
     createNotification: () => new Notification(),
+    inputs: shortcutInputs,
     today
   }, overrides)
 }
@@ -112,7 +114,10 @@ function isSubmissionPayload(parameter) {
 async function run(parameter, overrides) {
   if (isSubmissionPayload(parameter)) return submit(parameter, overrides)
   const dependencies = runtime(overrides)
-  return { ok: true, ...prepare(parameter, dependencies.getClipboard()) }
+  const prepared = prepare(parameter, dependencies.getClipboard())
+  const objet = await dependencies.inputs.text({ object: "Objet", default: prepared.objet, multiLine: false })
+  const montant = await dependencies.inputs.number({ object: "Montant", default: prepared.montant, negative: false, decimals: true })
+  return submit({ objet, montant }, dependencies)
 }
 
 module.exports = { prepare, submit, run }
