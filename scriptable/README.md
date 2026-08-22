@@ -8,14 +8,18 @@ le dictionnaire confirmé, encode les valeurs et enregistre la dépense.
 Dans le raccourci principal **Comptes communs**, activez la feuille de partage
 pour le type Texte, puis ajoutez dans cet ordre :
 
-1. **Exécuter le script** `ComptesCommuns` avec « Contenu du raccourci ».
-2. **Obtenir la valeur du dictionnaire** `objet`, puis **Demander du texte**
+1. **Obtenir le presse-papiers**.
+2. **Dictionnaire** avec les clés `shareInput` (l’Entrée de raccourci) et
+   `clipboard` (le résultat de « Obtenir le presse-papiers »).
+3. **Exécuter le script** `ComptesCommuns` avec ce dictionnaire. Scriptable
+   utilise d’abord `shareInput`, puis `clipboard` s’il est vide.
+4. **Obtenir la valeur du dictionnaire** `objet`, puis **Demander du texte**
    « Objet » avec cette valeur comme réponse par défaut.
-3. **Obtenir la valeur du dictionnaire** `montant`, puis **Demander un nombre**
+5. **Obtenir la valeur du dictionnaire** `montant`, puis **Demander un nombre**
    « Montant » avec cette valeur comme réponse par défaut.
-4. **Dictionnaire** avec les clés `objet` et `montant` et les deux réponses.
-5. **Exécuter le script** `ComptesCommuns` avec ce dictionnaire.
-6. **Obtenir la valeur du dictionnaire** `ok`. Si elle vaut vrai, ajoutez
+6. **Dictionnaire** avec les clés `objet` et `montant` et les deux réponses.
+7. **Exécuter le script** `ComptesCommuns` avec ce dictionnaire.
+8. **Obtenir la valeur du dictionnaire** `ok`. Si elle vaut vrai, ajoutez
    **Choisir dans le menu** avec le message « Dépense ajoutée. Ouvrir les
    comptes ? » : sur « Oui », **Ouvrir les URL** avec
    `https://docs.google.com/spreadsheets/d/1FYMtigzGJMiEN2PoS3MttShdzJ75mY3lzaF5u_7PCeU/edit#gid=0` ; sur « Non »,

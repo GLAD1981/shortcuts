@@ -106,18 +106,26 @@ function isSubmissionPayload(parameter) {
     Object.prototype.hasOwnProperty.call(parameter, "montant")
 }
 
+function isInputPayload(parameter) {
+  return parameter && typeof parameter === "object" &&
+    Object.prototype.hasOwnProperty.call(parameter, "shareInput") &&
+    Object.prototype.hasOwnProperty.call(parameter, "clipboard")
+}
+
 async function run(parameter, overrides) {
   if (isSubmissionPayload(parameter)) return submit(parameter, overrides)
   const dependencies = runtime(overrides)
-  const clipboard = dependencies.getClipboard()
-  const sharedText = toText(parameter)
-  const prepared = prepare(parameter, clipboard)
+  const input = isInputPayload(parameter)
+    ? { shareInput: parameter.shareInput, clipboard: parameter.clipboard }
+    : { shareInput: parameter, clipboard: dependencies.getClipboard() }
+  const sharedText = toText(input.shareInput)
+  const prepared = prepare(input.shareInput, input.clipboard)
   try {
     dependencies.appendTransfer(JSON.stringify({
       date: new Date().toISOString(),
-      shareInputType: typeof parameter,
+      shareInputType: typeof input.shareInput,
       shareInput: sharedText,
-      clipboard: trimText(clipboard),
+      clipboard: trimText(input.clipboard),
       source: trimText(sharedText) ? "share" : "clipboard",
       prepared
     }))

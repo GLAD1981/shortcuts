@@ -36,6 +36,24 @@ test("run records the share input and clipboard in the transfer log", async () =
   assert.match(transfer, /"source":"clipboard"/)
 })
 
+test("run prioritizes an explicit share input over an explicit clipboard", async () => {
+  const result = await comptes.run({ shareInput: "Courses 12,50", clipboard: "Parking 9" }, {
+    getClipboard: () => "Ignoré",
+    appendTransfer() {}
+  })
+
+  assert.deepStrictEqual(result, { ok: true, objet: "Courses", montant: "12,50" })
+})
+
+test("run uses an explicit clipboard when the share input is blank", async () => {
+  const result = await comptes.run({ shareInput: "", clipboard: "Parking 9" }, {
+    getClipboard: () => "Ignoré",
+    appendTransfer() {}
+  })
+
+  assert.deepStrictEqual(result, { ok: true, objet: "Parking", montant: "9" })
+})
+
 test("run returns prepared fields for the native Shortcut prompts", async () => {
   const result = await comptes.run("Courses 12,50", {
     getClipboard: () => "Ignoré 99",
