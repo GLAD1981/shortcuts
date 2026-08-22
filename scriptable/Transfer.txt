@@ -2,3 +2,4 @@
 {"date":"2026-08-22T07:38:57.285Z","shareInputType":"object","shareInput":"","clipboard":"","source":"clipboard","prepared":{"objet":"","montant":""}}
 {"date":"2026-08-22T07:46:22.148Z","shareInputType":"object","shareInput":"","clipboard":"","source":"clipboard","prepared":{"objet":"","montant":""}}
 {"date":"2026-08-22T07:46:33.650Z","shareInputType":"object","shareInput":"","clipboard":"","source":"clipboard","prepared":{"objet":"","montant":""}}
+{"date":"2026-08-22T08:06:14.065Z","stage":"prepare","shareInputType":"string","shareInput":"","clipboard":"Supermarché 10","source":"clipboard","prepared":{"objet":"Supermarché","montant":"10"}}
