@@ -16,6 +16,13 @@ test("prepare uses the clipboard when share input is blank", () => {
   )
 })
 
+test("prepare extracts a number received from the share sheet", () => {
+  assert.deepStrictEqual(
+    comptes.prepare(1, "Ignoré 99"),
+    { objet: "", montant: "1" }
+  )
+})
+
 test("run returns prepared fields for the native Shortcut prompts", async () => {
   const result = await comptes.run("Courses 12,50", {
     getClipboard: () => "Ignoré 99"
