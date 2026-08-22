@@ -38,11 +38,13 @@ contacte pas le serveur des comptes et ne crée pas de notification réelle.
 
 ## Journal de transfert
 
-Lors de la préparation d’une dépense, `ComptesCommuns` ajoute une ligne dans
-`Transfer.txt` avec l’entrée reçue, le presse-papiers et la source retenue.
-Après une reproduction, exécutez `PublishLibrary` pour publier ce fichier dans
-GitHub, puis prévenez Codex. Ce fichier peut contenir le presse-papiers : ne
-l’utilisez pas avec des données sensibles.
+`ComptesCommuns.js` contient en haut le booléen `DEBUG_MODE`. À `true`, chaque
+préparation et envoi ajoute une ligne dans `Transfer.txt`, puis publie ce seul
+fichier directement sur GitHub. Le jeton GitHub doit donc déjà avoir été
+enregistré lors d’un précédent lancement de `PublishLibrary`. À `false`, les
+lignes de diagnostic restent dans le code mais aucun journal n’est écrit ni
+publié. Ce fichier peut contenir le presse-papiers : ne l’utilisez pas avec des
+données sensibles.
 
 `PublishLibrary` publie les scripts `.js` et `Transfer.txt` du dossier
 Scriptable dans un seul commit GitHub. Au premier lancement, fournissez un fine-grained token

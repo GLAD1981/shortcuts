@@ -51,3 +51,26 @@ test("publish creates one commit and mirrors remote scripts", async () => {
   ])
   assert.strictEqual(calls.filter(call => call.path === "git/commits").length, 1)
 })
+
+test("publishTransfer updates Transfer.txt without deleting remote scripts", async () => {
+  const calls = []
+  const api = {
+    async request(method, path, body) {
+      calls.push({ method, path, body })
+      if (path === "git/ref/heads/main") return { object: { sha: "parent" } }
+      if (path === "git/commits/parent") return { tree: { sha: "base-tree" } }
+      if (path === "git/trees/base-tree?recursive=1") return { tree: [{ path: "scriptable/ComptesCommuns.js", type: "blob" }] }
+      if (path === "git/trees") return { sha: "new-tree" }
+      if (path === "git/commits") return { sha: "new-commit" }
+      if (path === "git/refs/heads/main") return {}
+      throw new Error(`Unexpected request: ${method} ${path}`)
+    }
+  }
+
+  await publisher.publishTransfer(api, { path: "Transfer.txt", content: "diagnostic" }, "main")
+  const tree = calls.find(call => call.path === "git/trees").body
+
+  assert.deepStrictEqual(tree.tree, [
+    { path: "scriptable/Transfer.txt", mode: "100644", type: "blob", content: "diagnostic" }
+  ])
+})
