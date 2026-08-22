@@ -37,6 +37,13 @@ async function run() {
     })
     assert(transfer.includes('"source":"clipboard"'), "Source presse-papiers absente")
   })
+  await test("Presse-papiers transmis par Raccourcis", async () => {
+    const expense = await comptesCommuns.run({ shareInput: "", clipboard: "Parking 9" }, {
+      appendTransfer() {}
+    })
+    assert(expense.objet === "Parking", "Objet du presse-papiers absent")
+    assert(expense.montant === "9", "Montant du presse-papiers absent")
+  })
   await test("Envoi des comptes communs sans effet réel", async () => {
     const state = { requestUrl: "" }
     const runtime = {
