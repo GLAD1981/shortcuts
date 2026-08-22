@@ -26,6 +26,15 @@ async function getToken() {
   return token
 }
 
+function hasToken() {
+  return Keychain.contains(TOKEN_KEY)
+}
+
+function getStoredToken() {
+  if (!hasToken()) throw new Error("Jeton GitHub absent")
+  return Keychain.get(TOKEN_KEY)
+}
+
 function createApi(token) {
   return {
     async request(method, path, body) {
@@ -62,7 +71,7 @@ async function collectScriptFiles(fileManager, root, directory = root) {
   return files
 }
 
-async function publish(api, files, branch) {
+async function publish(api, files, branch, options = { mirrorScripts: true }) {
   if (files.length === 0) throw new Error("Aucun fichier Scriptable à publier")
 
   const reference = await api.request("GET", `git/ref/heads/${branch}`)
@@ -78,9 +87,11 @@ async function publish(api, files, branch) {
     type: "blob",
     content: file.content
   }))
-  for (const file of remoteTree.tree) {
-    if (file.type === "blob" && file.path.startsWith("scriptable/") && file.path.endsWith(".js") && !localPaths.has(file.path)) {
-      entries.push({ path: file.path, mode: "100644", type: "blob", sha: null })
+  if (options.mirrorScripts) {
+    for (const file of remoteTree.tree) {
+      if (file.type === "blob" && file.path.startsWith("scriptable/") && file.path.endsWith(".js") && !localPaths.has(file.path)) {
+        entries.push({ path: file.path, mode: "100644", type: "blob", sha: null })
+      }
     }
   }
 
@@ -92,6 +103,10 @@ async function publish(api, files, branch) {
   })
   await api.request("PATCH", `git/refs/heads/${branch}`, { sha: commit.sha, force: false })
   return { sha: commit.sha, count: files.length }
+}
+
+function publishTransfer(api, file, branch) {
+  return publish(api, [file], branch, { mirrorScripts: false })
 }
 
 async function run() {
@@ -121,7 +136,7 @@ async function run() {
   }
 }
 
-module.exports = { collectScriptFiles, publish, run }
+module.exports = { collectScriptFiles, publish, publishTransfer, hasToken, getStoredToken, createApi, run }
 
 if (typeof Script !== "undefined" && Script.name() === "PublishLibrary") {
   run().then(result => {

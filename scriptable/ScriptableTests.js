@@ -33,15 +33,26 @@ async function run() {
     let transfer = ""
     await comptesCommuns.run("", {
       getClipboard: () => "Parking 12,50",
-      appendTransfer: line => { transfer = line }
+      appendTransfer: line => { transfer = line },
+      async syncTransfer() {}
     })
     assert(transfer.includes('"source":"clipboard"'), "Source presse-papiers absente")
+  })
+  await test("Presse-papiers transmis par Raccourcis", async () => {
+    const expense = await comptesCommuns.run({ shareInput: "", clipboard: "Parking 9" }, {
+      appendTransfer() {},
+      async syncTransfer() {}
+    })
+    assert(expense.objet === "Parking", "Objet du presse-papiers absent")
+    assert(expense.montant === "9", "Montant du presse-papiers absent")
   })
   await test("Envoi des comptes communs sans effet réel", async () => {
     const state = { requestUrl: "" }
     const runtime = {
       createRequest: url => ({ response: { statusCode: 200 }, async loadString() { state.requestUrl = url; return "Dépense ajoutée." } }),
       createNotification: () => { throw new Error("Notification inattendue") },
+      appendTransfer() {},
+      async syncTransfer() {},
       today: () => "2026-08-22"
     }
     const result = await comptesCommuns.run({ objet: "Courses", montant: "12,50" }, runtime)

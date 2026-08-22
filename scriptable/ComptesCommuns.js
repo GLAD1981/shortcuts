@@ -1,6 +1,8 @@
 // Variables used by Scriptable.
 // These must be at the very top of the file. Do not edit.
 // icon-color: orange; icon-glyph: money-bill-alt;
+const DEBUG_MODE = true
+const publisher = typeof importModule === "function" ? importModule("PublishLibrary") : require("./PublishLibrary")
 const ENDPOINT = "https://script.google.com/macros/s/AKfycbyXqRY95_U1bTUxKXiOC0NicLGA3v5DU8xrRjYVRnGzb5UdMoJWuMdqFYDXkt6QokHu/exec"
 const TRANSFER_FILE = "Transfer.txt"
 
@@ -67,11 +69,25 @@ function appendTransfer(line) {
   fileManager.writeString(path, `${previous}${line}\n`)
 }
 
+async function syncTransfer() {
+  if (!publisher.hasToken()) return { skipped: true }
+  const fileManager = FileManager.iCloud()
+  const path = fileManager.joinPath(fileManager.documentsDirectory(), TRANSFER_FILE)
+  if (!fileManager.fileExists(path)) return { skipped: true }
+  await fileManager.downloadFileFromiCloud(path)
+  return publisher.publishTransfer(
+    publisher.createApi(publisher.getStoredToken()),
+    { path: TRANSFER_FILE, content: fileManager.readString(path) },
+    "main"
+  )
+}
+
 function runtime(overrides = {}) {
   return Object.assign({
     getClipboard: () => Pasteboard.pasteString(),
     createRequest: url => new Request(url),
     appendTransfer,
+    syncTransfer,
     today
   }, overrides)
 }
@@ -106,24 +122,46 @@ function isSubmissionPayload(parameter) {
     Object.prototype.hasOwnProperty.call(parameter, "montant")
 }
 
-async function run(parameter, overrides) {
-  if (isSubmissionPayload(parameter)) return submit(parameter, overrides)
-  const dependencies = runtime(overrides)
-  const clipboard = dependencies.getClipboard()
-  const sharedText = toText(parameter)
-  const prepared = prepare(parameter, clipboard)
+function isInputPayload(parameter) {
+  return parameter && typeof parameter === "object" &&
+    Object.prototype.hasOwnProperty.call(parameter, "shareInput") &&
+    Object.prototype.hasOwnProperty.call(parameter, "clipboard")
+}
+
+async function recordDebug(dependencies, entry) {
+  if (!DEBUG_MODE) return
   try {
-    dependencies.appendTransfer(JSON.stringify({
-      date: new Date().toISOString(),
-      shareInputType: typeof parameter,
-      shareInput: sharedText,
-      clipboard: trimText(clipboard),
-      source: trimText(sharedText) ? "share" : "clipboard",
-      prepared
-    }))
+    dependencies.appendTransfer(JSON.stringify({ date: new Date().toISOString(), ...entry }))
   } catch (error) {
     console.error(`[ComptesCommuns] Journal de transfert : ${String(error.message || error)}`)
   }
+  try {
+    await dependencies.syncTransfer()
+  } catch (error) {
+    console.error(`[ComptesCommuns] Synchronisation du transfert : ${String(error.message || error)}`)
+  }
+}
+
+async function run(parameter, overrides) {
+  const dependencies = runtime(overrides)
+  if (isSubmissionPayload(parameter)) {
+    const result = await submit(parameter, dependencies)
+    await recordDebug(dependencies, { stage: "submit", payload: parameter, result })
+    return result
+  }
+  const input = isInputPayload(parameter)
+    ? { shareInput: parameter.shareInput, clipboard: parameter.clipboard }
+    : { shareInput: parameter, clipboard: dependencies.getClipboard() }
+  const sharedText = toText(input.shareInput)
+  const prepared = prepare(input.shareInput, input.clipboard)
+  await recordDebug(dependencies, {
+    stage: "prepare",
+    shareInputType: typeof input.shareInput,
+    shareInput: sharedText,
+    clipboard: trimText(input.clipboard),
+    source: trimText(sharedText) ? "share" : "clipboard",
+    prepared
+  })
   return { ok: true, ...prepared }
 }
 
