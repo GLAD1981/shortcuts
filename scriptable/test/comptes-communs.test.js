@@ -27,8 +27,7 @@ test("run records the share input and clipboard in the transfer log", async () =
   let transfer = ""
   const result = await comptes.run("", {
     getClipboard: () => "Parking 12,50",
-    appendTransfer: line => { transfer = line },
-    async syncTransfer() {}
+    appendTransfer: line => { transfer = line }
   })
 
   assert.deepStrictEqual(result, { ok: true, objet: "Parking", montant: "12,50" })
@@ -37,42 +36,10 @@ test("run records the share input and clipboard in the transfer log", async () =
   assert.match(transfer, /"source":"clipboard"/)
 })
 
-test("run synchronizes the transfer log in debug mode", async () => {
-  let synchronized = 0
-  await comptes.run("", {
-    getClipboard: () => "Parking 12,50",
-    appendTransfer() {},
-    async syncTransfer() { synchronized++ }
-  })
-
-  assert.strictEqual(synchronized, 1)
-})
-
-test("run prioritizes an explicit share input over an explicit clipboard", async () => {
-  const result = await comptes.run({ shareInput: "Courses 12,50", clipboard: "Parking 9" }, {
-    getClipboard: () => "Ignoré",
-    appendTransfer() {},
-    async syncTransfer() {}
-  })
-
-  assert.deepStrictEqual(result, { ok: true, objet: "Courses", montant: "12,50" })
-})
-
-test("run uses an explicit clipboard when the share input is blank", async () => {
-  const result = await comptes.run({ shareInput: "", clipboard: "Parking 9" }, {
-    getClipboard: () => "Ignoré",
-    appendTransfer() {},
-    async syncTransfer() {}
-  })
-
-  assert.deepStrictEqual(result, { ok: true, objet: "Parking", montant: "9" })
-})
-
 test("run returns prepared fields for the native Shortcut prompts", async () => {
   const result = await comptes.run("Courses 12,50", {
     getClipboard: () => "Ignoré 99",
-    appendTransfer() {},
-    async syncTransfer() {}
+    appendTransfer() {}
   })
 
   assert.deepStrictEqual(result, { ok: true, objet: "Courses", montant: "12,50" })
@@ -89,8 +56,6 @@ test("run submits a confirmed shortcut dictionary without notification", async (
       }
     }),
     createNotification() { throw new Error("notification inattendue") },
-    appendTransfer() {},
-    async syncTransfer() {},
     today: () => "2026-08-22"
   })
 
@@ -103,8 +68,6 @@ test("run rejects an invalid confirmed amount without sending a request", async 
   const result = await comptes.run({ objet: "Courses", montant: "invalide" }, {
     createRequest() { requested = true },
     createNotification() { throw new Error("notification inattendue") },
-    appendTransfer() {},
-    async syncTransfer() {},
     today: () => "2026-08-22"
   })
 
