@@ -1,1 +1,1 @@
-Journal de transfert Scriptable. Les exécutions de ComptesCommuns ajoutent ci-dessous leurs diagnostics.
+{"date":"2026-08-22T07:33:55.598Z","shareInputType":"object","shareInput":"","clipboard":"","source":"clipboard","prepared":{"objet":"","montant":""}}
