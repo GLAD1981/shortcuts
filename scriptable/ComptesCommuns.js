@@ -9,6 +9,7 @@ function trimText(value) {
 
 function toText(value) {
   if (typeof value === "string") return value
+  if (typeof value === "number" && Number.isFinite(value)) return String(value)
   if (Array.isArray(value)) return value.map(toText).filter(Boolean).join("\n")
   return ""
 }

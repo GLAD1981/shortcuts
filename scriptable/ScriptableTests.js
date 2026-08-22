@@ -24,6 +24,11 @@ async function run() {
     assert(expense.objet === "Courses", "Objet non extrait")
     assert(expense.montant === "1234,50", "Montant non normalisé")
   })
+  await test("Montant numérique reçu par partage", () => {
+    const expense = comptesCommuns.prepare(1, "Ignoré 99")
+    assert(expense.objet === "", "Objet inattendu")
+    assert(expense.montant === "1", "Montant numérique ignoré")
+  })
   await test("Envoi des comptes communs sans effet réel", async () => {
     const state = { requestUrl: "" }
     const runtime = {
