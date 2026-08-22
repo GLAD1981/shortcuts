@@ -5,3 +5,4 @@
 {"date":"2026-08-22T08:06:14.065Z","stage":"prepare","shareInputType":"string","shareInput":"","clipboard":"Supermarché 10","source":"clipboard","prepared":{"objet":"Supermarché","montant":"10"}}
 {"date":"2026-08-22T08:06:29.838Z","stage":"submit","payload":{"objet":"Supermarché","montant":10},"result":{"ok":true,"objet":"Supermarché","montant":"10"}}
 {"date":"2026-08-22T08:07:43.377Z","stage":"prepare","shareInputType":"string","shareInput":"","clipboard":"Supermarché 10","source":"clipboard","prepared":{"objet":"Supermarché","montant":"10"}}
+{"date":"2026-08-22T08:07:54.866Z","stage":"submit","payload":{"objet":"Supermarché","montant":10},"result":{"ok":true,"objet":"Supermarché","montant":"10"}}
