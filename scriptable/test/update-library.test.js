@@ -17,6 +17,15 @@ test("UpdateLibrary schedules notifications through an instance", () => {
   assert.match(source, /await tests\.present\(testResult\)/)
 })
 
+test("UpdateLibrary removes only files recorded in its previous manifest", () => {
+  const source = fs.readFileSync(path.join(__dirname, "..", "..", "UpdateLibrary.js"), "utf8")
+  assert.match(source, /const MANIFEST_NAME = "ShortcutsLibraryManifest\.json"/)
+  assert.match(source, /JSON\.parse\(fm\.readString\(manifestPath\)\)/)
+  assert.match(source, /previousFiles\.filter\(path => !remotePaths\.has\(path\)\)/)
+  assert.match(source, /fm\.remove\(destinationPath\(relativePath\)\)/)
+  assert.match(source, /fm\.writeString\(manifestPath, JSON\.stringify\(\{ files: files\.map\(file => file\.localPath\) \}\)\)/)
+})
+
 test("ScriptableTests remains importable by UpdateLibrary", () => {
   const source = fs.readFileSync(path.join(__dirname, "..", "ScriptableTests.js"), "utf8")
   assert.doesNotMatch(source, /if \(Script\.name\(\) === "ScriptableTests"\) \{\s*const result = await run\(\)/)

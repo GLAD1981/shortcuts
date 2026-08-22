@@ -43,4 +43,7 @@ exécution.
 
 Après l'installation de `ComptesCommuns.js`, supprimez manuellement
 `ExpenseConfig`, `ExpenseInput`, `SharedExpenses` et `ShortcutRunner` dans
-Scriptable. `UpdateLibrary` n'efface pas les scripts locaux absents de GitHub.
+Scriptable s'ils étaient installés avant le manifeste. Ensuite,
+`UpdateLibrary` supprime automatiquement les fichiers qu’il avait lui-même
+installés et qui ont été retirés de GitHub, sans toucher aux autres scripts
+locaux.
