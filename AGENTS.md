@@ -15,8 +15,7 @@ une ligne signalée par Scriptable est décalée vers le bas dans la source du
 dépôt d'autant de lignes d'en-tête ou de mise en forme présentes avant le code.
 
 Pour les raccourcis iOS, l'interface et la saisie restent dans Raccourcis ;
-Scriptable prépare les données, appelle les mini-raccourcis de saisie par URL de
-retour, puis réalise les requêtes et notifications. Préférer un script d'entrée
-unique par fonctionnalité. Réutiliser `ShortcutInputs.js`, `textInputbox` et
-`numberInputBox` pour les saisies texte et numériques, puis ajouter un nouvel
-utilitaire seulement lorsqu'une action revient dans au moins deux raccourcis.
+Scriptable prépare les données, les transmet par dictionnaire, puis réalise les
+requêtes. Préférer un script d'entrée unique par fonctionnalité. Extraire un
+module utilitaire uniquement lorsqu'il est utile à au moins deux raccourcis,
+puis réutiliser ce même module plutôt que dupliquer sa logique.

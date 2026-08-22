@@ -1,32 +1,30 @@
 # Dépense commune
 
-`ComptesCommuns.js` est appelé une seule fois par le raccourci iOS. Il donne
-priorité au texte reçu de la feuille de partage, puis utilise le presse-papiers,
-préremplit les deux saisies, enregistre la dépense et affiche une notification
-qui ouvre la feuille des comptes.
+`ComptesCommuns.js` est appelé deux fois par le raccourci iOS. Le premier appel
+donne priorité au texte reçu de la feuille de partage, puis utilise le
+presse-papiers et renvoie un dictionnaire `{ objet, montant }`. Le second reçoit
+le dictionnaire confirmé, encode les valeurs et enregistre la dépense.
 
-Le raccourci principal **Comptes communs** ne contient plus qu’une action :
+Dans le raccourci principal **Comptes communs**, activez la feuille de partage
+pour le type Texte, puis ajoutez dans cet ordre :
 
-1. Activez sa feuille de partage pour le type Texte.
-2. Ajoutez **Exécuter le script** `ComptesCommuns` avec « Contenu du
-   raccourci ».
-
-Les deux mini-raccourcis suivants sont créés une fois et réutilisés par les
-autres fonctionnalités. Ils reçoivent un dictionnaire JSON, affichent la saisie
-native, puis renvoient la réponse texte à Scriptable :
-
-- `textInputbox` : « Obtenir le dictionnaire de l’entrée de raccourci », puis
-  obtient les clés `object`, `default`, `multiLine` et les branche sur
-  « Demander Texte ».
-- `numberInputBox` : même principe avec les clés `object`, `default`,
-  `negative`, `decimals` et « Demander Nombre ».
-
-`ShortcutInputs.js` encapsule l’appel de ces deux raccourcis via leur URL de
-retour. Les autres scripts Scriptable doivent réutiliser ce module pour les
-saisies texte et numériques, au lieu de recréer des dialogues semblables.
+1. **Exécuter le script** `ComptesCommuns` avec « Contenu du raccourci ».
+2. **Obtenir la valeur du dictionnaire** `objet`, puis **Demander du texte**
+   « Objet » avec cette valeur comme réponse par défaut.
+3. **Obtenir la valeur du dictionnaire** `montant`, puis **Demander un nombre**
+   « Montant » avec cette valeur comme réponse par défaut.
+4. **Dictionnaire** avec les clés `objet` et `montant` et les deux réponses.
+5. **Exécuter le script** `ComptesCommuns` avec ce dictionnaire.
+6. **Obtenir la valeur du dictionnaire** `ok`. Si elle vaut vrai, ajoutez
+   **Choisir dans le menu** avec le message « Dépense ajoutée. Ouvrir les
+   comptes ? » : sur « Oui », **Ouvrir les URL** avec
+   `https://docs.google.com/spreadsheets/d/1FYMtigzGJMiEN2PoS3MttShdzJ75mY3lzaF5u_7PCeU/edit#gid=0` ; sur « Non »,
+   ne faites rien. Sinon, affichez la valeur `erreur` retournée par le script.
 
 Retirez les anciennes actions d'encodage URL, de construction du texte URL,
-d'obtention du contenu et de notification : Scriptable les remplace.
+d'obtention du contenu et de notification : le second appel Scriptable les
+remplace. Le dialogue final reste dans Raccourcis, car Scriptable ne peut pas
+présenter d’alerte lorsqu’il est appelé par Siri.
 
 Après une mise à jour, exécutez `ScriptableTests` dans Scriptable. Ce test ne
 contacte pas le serveur des comptes et ne crée pas de notification réelle.
