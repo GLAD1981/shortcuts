@@ -7,3 +7,5 @@
 {"date":"2026-08-22T08:07:43.377Z","stage":"prepare","shareInputType":"string","shareInput":"","clipboard":"Supermarché 10","source":"clipboard","prepared":{"objet":"Supermarché","montant":"10"}}
 {"date":"2026-08-22T08:07:54.866Z","stage":"submit","payload":{"objet":"Supermarché","montant":10},"result":{"ok":true,"objet":"Supermarché","montant":"10"}}
 {"date":"2026-08-22T08:09:27.431Z","stage":"prepare","shareInputType":"string","shareInput":"10","clipboard":"Supermarché 10","source":"share","prepared":{"objet":"","montant":"10"}}
+{"date":"2026-08-23T09:26:14.666Z","stage":"prepare","shareInputType":"string","shareInput":"","clipboard":"","source":"clipboard","prepared":{"objet":"","montant":""}}
+{"date":"2026-08-23T09:26:27.702Z","stage":"prepare","shareInputType":"string","shareInput":"","clipboard":"","source":"clipboard","prepared":{"objet":"","montant":""}}
