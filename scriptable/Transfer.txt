@@ -9,3 +9,4 @@
 {"date":"2026-08-22T08:09:27.431Z","stage":"prepare","shareInputType":"string","shareInput":"10","clipboard":"Supermarché 10","source":"share","prepared":{"objet":"","montant":"10"}}
 {"date":"2026-08-23T09:26:14.666Z","stage":"prepare","shareInputType":"string","shareInput":"","clipboard":"","source":"clipboard","prepared":{"objet":"","montant":""}}
 {"date":"2026-08-23T09:26:27.702Z","stage":"prepare","shareInputType":"string","shareInput":"","clipboard":"","source":"clipboard","prepared":{"objet":"","montant":""}}
+{"date":"2026-08-23T09:26:44.349Z","stage":"submit","payload":{"objet":"Mini courses","montant":40},"result":{"ok":true,"objet":"Mini courses","montant":"40"}}
