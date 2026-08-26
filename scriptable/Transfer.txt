@@ -15,3 +15,6 @@
 {"date":"2026-08-26T14:59:03.982Z","stage":"prepare","shareInputType":"string","shareInput":"","clipboard":"","source":"clipboard","prepared":{"objet":"","montant":""}}
 {"date":"2026-08-26T14:59:16.888Z","stage":"prepare","shareInputType":"string","shareInput":"","clipboard":"","source":"clipboard","prepared":{"objet":"","montant":""}}
 {"date":"2026-08-26T14:59:52.821Z","stage":"prepare","shareInputType":"string","shareInput":"","clipboard":"","source":"clipboard","prepared":{"objet":"","montant":""}}
+{"date":"2026-08-26T14:59:55.576Z","stage":"submit","payload":{"objet":"Uber pets","montant":16.93},"result":{"ok":true,"objet":"Uber pets","montant":"16,93"}}
+{"date":"2026-08-26T17:35:19.074Z","stage":"prepare","shareInputType":"string","shareInput":"","clipboard":"","source":"clipboard","prepared":{"objet":"","montant":""}}
+{"date":"2026-08-26T17:50:50.238Z","stage":"prepare","shareInputType":"string","shareInput":"","clipboard":"","source":"clipboard","prepared":{"objet":"","montant":""}}
