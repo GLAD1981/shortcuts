@@ -1,23 +1,40 @@
 const assert = require("assert")
+const fs = require("fs")
+const path = require("path")
 const test = require("node:test")
-const comptes = require("../ComptesCommuns")
+const vm = require("node:vm")
+
+let comptes
+
+test.before(async () => {
+  const filename = path.join(__dirname, "..", "ComptesCommuns.js")
+  const context = vm.createContext({
+    module: { exports: {} },
+    require: request => require(path.join(__dirname, "..", request)),
+    console
+  })
+  const script = new vm.SourceTextModule(fs.readFileSync(filename, "utf8"), { context, identifier: filename })
+  await script.link(() => { throw new Error("Import inattendu") })
+  await script.evaluate()
+  comptes = context.module.exports
+})
 
 test("prepare prioritizes share input and extracts fields", () => {
-  assert.deepStrictEqual(
+  assert.deepEqual(
     comptes.prepare("Courses 1 234,50 €", "Ignoré 99"),
     { objet: "Courses", montant: "1234,50" }
   )
 })
 
 test("prepare uses the clipboard when share input is blank", () => {
-  assert.deepStrictEqual(
+  assert.deepEqual(
     comptes.prepare("  ", "Parking 12.50"),
     { objet: "Parking", montant: "12,50" }
   )
 })
 
 test("prepare extracts a number received from the share sheet", () => {
-  assert.deepStrictEqual(
+  assert.deepEqual(
     comptes.prepare(1, "Ignoré 99"),
     { objet: "", montant: "1" }
   )
@@ -31,7 +48,7 @@ test("run records the share input and clipboard in the transfer log", async () =
     async syncTransfer() {}
   })
 
-  assert.deepStrictEqual(result, { ok: true, objet: "Parking", montant: "12,50" })
+  assert.deepEqual(result, { ok: true, objet: "Parking", montant: "12,50" })
   assert.match(transfer, /"shareInput":""/)
   assert.match(transfer, /"clipboard":"Parking 12,50"/)
   assert.match(transfer, /"source":"clipboard"/)
@@ -55,7 +72,7 @@ test("run prioritizes an explicit share input over an explicit clipboard", async
     async syncTransfer() {}
   })
 
-  assert.deepStrictEqual(result, { ok: true, objet: "Courses", montant: "12,50" })
+  assert.deepEqual(result, { ok: true, objet: "Courses", montant: "12,50" })
 })
 
 test("run uses an explicit clipboard when the share input is blank", async () => {
@@ -65,7 +82,7 @@ test("run uses an explicit clipboard when the share input is blank", async () =>
     async syncTransfer() {}
   })
 
-  assert.deepStrictEqual(result, { ok: true, objet: "Parking", montant: "9" })
+  assert.deepEqual(result, { ok: true, objet: "Parking", montant: "9" })
 })
 
 test("run returns prepared fields for the native Shortcut prompts", async () => {
@@ -75,7 +92,7 @@ test("run returns prepared fields for the native Shortcut prompts", async () => 
     async syncTransfer() {}
   })
 
-  assert.deepStrictEqual(result, { ok: true, objet: "Courses", montant: "12,50" })
+  assert.deepEqual(result, { ok: true, objet: "Courses", montant: "12,50" })
 })
 
 test("run submits a confirmed shortcut dictionary without notification", async () => {
@@ -108,6 +125,30 @@ test("run rejects an invalid confirmed amount without sending a request", async 
     today: () => "2026-08-22"
   })
 
-  assert.deepStrictEqual(result, { ok: false, objet: "Courses", montant: "", erreur: "Montant invalide" })
+  assert.deepEqual(result, { ok: false, objet: "Courses", montant: "", erreur: "Montant invalide" })
   assert.strictEqual(requested, false)
+})
+
+test("runShortcut emits its output before completing Scriptable", async () => {
+  const events = []
+  const transfer = []
+  const script = {
+    setShortcutOutput(value) { events.push(["output", value]) },
+    complete() { events.push(["complete"]) }
+  }
+
+  await comptes.runShortcut(script, { objet: "Courses", montant: "invalide" }, {
+    appendTransfer(line) { transfer.push(JSON.parse(line)) },
+    async syncTransfer() {}
+  })
+
+  assert.deepEqual(events, [
+    ["output", { ok: false, objet: "Courses", montant: "", erreur: "Montant invalide" }],
+    ["complete"]
+  ])
+  assert.deepEqual(transfer.map(entry => entry.stage), [
+    "submit",
+    "shortcut-output",
+    "shortcut-complete"
+  ])
 })

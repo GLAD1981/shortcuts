@@ -142,6 +142,15 @@ async function recordDebug(dependencies, entry) {
   }
 }
 
+function recordLifecycle(dependencies, entry) {
+  if (!DEBUG_MODE) return
+  try {
+    dependencies.appendTransfer(JSON.stringify({ date: new Date().toISOString(), ...entry }))
+  } catch (error) {
+    console.error(`[ComptesCommuns] Journal de cycle : ${String(error.message || error)}`)
+  }
+}
+
 async function run(parameter, overrides) {
   const dependencies = runtime(overrides)
   if (isSubmissionPayload(parameter)) {
@@ -165,15 +174,24 @@ async function run(parameter, overrides) {
   return { ok: true, ...prepared }
 }
 
-module.exports = { prepare, submit, run }
+async function runShortcut(script, parameter, overrides) {
+  const dependencies = runtime(overrides)
+  let result
+  try {
+    result = await run(parameter, dependencies)
+  } catch (error) {
+    console.error(`[ComptesCommuns] Échec : ${String(error.message || error)}`)
+    result = { ok: false, erreur: String(error.message || error) }
+  }
+  recordLifecycle(dependencies, { stage: "shortcut-output", result })
+  script.setShortcutOutput(result)
+  recordLifecycle(dependencies, { stage: "shortcut-complete" })
+  script.complete()
+  return result
+}
+
+module.exports = { prepare, submit, run, runShortcut }
 
 if (typeof Script !== "undefined" && Script.name() === "ComptesCommuns") {
-  run(args.shortcutParameter).then(result => {
-    Script.setShortcutOutput(result)
-    Script.complete()
-  }).catch(error => {
-    console.error(`[ComptesCommuns] Échec : ${String(error.message || error)}`)
-    Script.setShortcutOutput({ ok: false, erreur: String(error.message || error) })
-    Script.complete()
-  })
+  await runShortcut(Script, args.shortcutParameter)
 }
