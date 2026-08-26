@@ -22,3 +22,5 @@
 {"date":"2026-08-26T18:15:06.196Z","stage":"prepare","shareInputType":"string","shareInput":"","clipboard":"","source":"clipboard","prepared":{"objet":"","montant":""}}
 {"date":"2026-08-26T18:27:00.407Z","stage":"prepare","shareInputType":"string","shareInput":"","clipboard":"","source":"clipboard","prepared":{"objet":"","montant":""}}
 {"date":"2026-08-26T18:28:22.383Z","stage":"submit","payload":{"objet":"Test","montant":10},"result":{"ok":false,"objet":"Test","montant":"10","erreur":"The request timed out."}}
+{"date":"2026-08-26T18:28:22.995Z","stage":"prepare","shareInputType":"string","shareInput":"","clipboard":"","source":"clipboard","prepared":{"objet":"","montant":""}}
+{"date":"2026-08-26T18:28:33.384Z","stage":"submit","payload":{"objet":"Test","montant":10},"result":{"ok":true,"objet":"Test","montant":"10"}}
