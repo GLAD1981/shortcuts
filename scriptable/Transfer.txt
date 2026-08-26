@@ -31,3 +31,8 @@
 {"date":"2026-08-26T18:33:47.557Z","stage":"prepare","shareInputType":"string","shareInput":"","clipboard":"","source":"clipboard","prepared":{"objet":"","montant":""}}
 {"date":"2026-08-26T18:34:13.166Z","stage":"submit","payload":{"objet":"Test","montant":10},"result":{"ok":false,"objet":"Test","montant":"10","erreur":"The network connection was lost."}}
 {"date":"2026-08-26T18:49:47.057Z","stage":"prepare","shareInputType":"string","shareInput":"","clipboard":"","source":"clipboard","prepared":{"objet":"","montant":""}}
+{"date":"2026-08-26T18:49:52.459Z","stage":"shortcut-output","result":{"ok":true,"objet":"","montant":""}}
+{"date":"2026-08-26T18:49:52.468Z","stage":"shortcut-complete"}
+{"date":"2026-08-26T18:50:06.420Z","stage":"submit","payload":{"objet":"Test","montant":10},"result":{"ok":true,"objet":"Test","montant":"10"}}
+{"date":"2026-08-26T18:50:10.199Z","stage":"shortcut-output","result":{"ok":true,"objet":"Test","montant":"10"}}
+{"date":"2026-08-26T18:50:10.204Z","stage":"shortcut-complete"}
