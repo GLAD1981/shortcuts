@@ -12,3 +12,5 @@
 {"date":"2026-08-23T09:26:44.349Z","stage":"submit","payload":{"objet":"Mini courses","montant":40},"result":{"ok":true,"objet":"Mini courses","montant":"40"}}
 {"date":"2026-08-23T09:31:01.537Z","stage":"prepare","shareInputType":"string","shareInput":"","clipboard":"","source":"clipboard","prepared":{"objet":"","montant":""}}
 {"date":"2026-08-23T09:31:42.839Z","stage":"submit","payload":{"objet":"Pâtée ","montant":50},"result":{"ok":true,"objet":"Pâtée","montant":"50"}}
+{"date":"2026-08-26T14:59:03.982Z","stage":"prepare","shareInputType":"string","shareInput":"","clipboard":"","source":"clipboard","prepared":{"objet":"","montant":""}}
+{"date":"2026-08-26T14:59:16.888Z","stage":"prepare","shareInputType":"string","shareInput":"","clipboard":"","source":"clipboard","prepared":{"objet":"","montant":""}}
