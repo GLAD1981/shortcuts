@@ -27,3 +27,5 @@
 {"date":"2026-08-26T18:28:51.090Z","stage":"prepare","shareInputType":"string","shareInput":"","clipboard":"","source":"clipboard","prepared":{"objet":"","montant":""}}
 {"date":"2026-08-26T18:29:07.108Z","stage":"submit","payload":{"objet":"Test","montant":10},"result":{"ok":true,"objet":"Test","montant":"10"}}
 {"date":"2026-08-26T18:29:45.662Z","stage":"prepare","shareInputType":"string","shareInput":"","clipboard":"","source":"clipboard","prepared":{"objet":"","montant":""}}
+{"date":"2026-08-26T18:30:05.781Z","stage":"submit","payload":{"objet":"Antibiotiques ","montant":8.7},"result":{"ok":true,"objet":"Antibiotiques","montant":"8,7"}}
+{"date":"2026-08-26T18:33:47.557Z","stage":"prepare","shareInputType":"string","shareInput":"","clipboard":"","source":"clipboard","prepared":{"objet":"","montant":""}}
