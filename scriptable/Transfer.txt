@@ -15,3 +15,18 @@
 {"date":"2026-08-26T14:59:03.982Z","stage":"prepare","shareInputType":"string","shareInput":"","clipboard":"","source":"clipboard","prepared":{"objet":"","montant":""}}
 {"date":"2026-08-26T14:59:16.888Z","stage":"prepare","shareInputType":"string","shareInput":"","clipboard":"","source":"clipboard","prepared":{"objet":"","montant":""}}
 {"date":"2026-08-26T14:59:52.821Z","stage":"prepare","shareInputType":"string","shareInput":"","clipboard":"","source":"clipboard","prepared":{"objet":"","montant":""}}
+{"date":"2026-08-26T14:59:55.576Z","stage":"submit","payload":{"objet":"Uber pets","montant":16.93},"result":{"ok":true,"objet":"Uber pets","montant":"16,93"}}
+{"date":"2026-08-26T17:35:19.074Z","stage":"prepare","shareInputType":"string","shareInput":"","clipboard":"","source":"clipboard","prepared":{"objet":"","montant":""}}
+{"date":"2026-08-26T17:50:50.238Z","stage":"prepare","shareInputType":"string","shareInput":"","clipboard":"","source":"clipboard","prepared":{"objet":"","montant":""}}
+{"date":"2026-08-26T17:51:20.228Z","stage":"prepare","shareInputType":"string","shareInput":"","clipboard":"","source":"clipboard","prepared":{"objet":"","montant":""}}
+{"date":"2026-08-26T18:15:06.196Z","stage":"prepare","shareInputType":"string","shareInput":"","clipboard":"","source":"clipboard","prepared":{"objet":"","montant":""}}
+{"date":"2026-08-26T18:27:00.407Z","stage":"prepare","shareInputType":"string","shareInput":"","clipboard":"","source":"clipboard","prepared":{"objet":"","montant":""}}
+{"date":"2026-08-26T18:28:22.383Z","stage":"submit","payload":{"objet":"Test","montant":10},"result":{"ok":false,"objet":"Test","montant":"10","erreur":"The request timed out."}}
+{"date":"2026-08-26T18:28:22.995Z","stage":"prepare","shareInputType":"string","shareInput":"","clipboard":"","source":"clipboard","prepared":{"objet":"","montant":""}}
+{"date":"2026-08-26T18:28:33.384Z","stage":"submit","payload":{"objet":"Test","montant":10},"result":{"ok":true,"objet":"Test","montant":"10"}}
+{"date":"2026-08-26T18:28:51.090Z","stage":"prepare","shareInputType":"string","shareInput":"","clipboard":"","source":"clipboard","prepared":{"objet":"","montant":""}}
+{"date":"2026-08-26T18:29:07.108Z","stage":"submit","payload":{"objet":"Test","montant":10},"result":{"ok":true,"objet":"Test","montant":"10"}}
+{"date":"2026-08-26T18:29:45.662Z","stage":"prepare","shareInputType":"string","shareInput":"","clipboard":"","source":"clipboard","prepared":{"objet":"","montant":""}}
+{"date":"2026-08-26T18:30:05.781Z","stage":"submit","payload":{"objet":"Antibiotiques ","montant":8.7},"result":{"ok":true,"objet":"Antibiotiques","montant":"8,7"}}
+{"date":"2026-08-26T18:33:47.557Z","stage":"prepare","shareInputType":"string","shareInput":"","clipboard":"","source":"clipboard","prepared":{"objet":"","montant":""}}
+{"date":"2026-08-26T18:34:13.166Z","stage":"submit","payload":{"objet":"Test","montant":10},"result":{"ok":false,"objet":"Test","montant":"10","erreur":"The network connection was lost."}}
