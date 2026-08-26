@@ -54,7 +54,7 @@ test("run records the share input and clipboard in the transfer log", async () =
   assert.match(transfer, /"source":"clipboard"/)
 })
 
-test("run synchronizes the transfer log in debug mode", async () => {
+test("run keeps the transfer log local in debug mode", async () => {
   let synchronized = 0
   await comptes.run("", {
     getClipboard: () => "Parking 12,50",
@@ -62,7 +62,7 @@ test("run synchronizes the transfer log in debug mode", async () => {
     async syncTransfer() { synchronized++ }
   })
 
-  assert.strictEqual(synchronized, 1)
+  assert.strictEqual(synchronized, 0)
 })
 
 test("run prioritizes an explicit share input over an explicit clipboard", async () => {
