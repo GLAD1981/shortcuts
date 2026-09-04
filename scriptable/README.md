@@ -59,3 +59,25 @@ Scriptable s'ils étaient installés avant le manifeste. Ensuite,
 `UpdateLibrary` supprime automatiquement les fichiers qu’il avait lui-même
 installés et qui ont été retirés de GitHub, sans toucher aux autres scripts
 locaux.
+
+## Universal Clipboard v2
+
+`UniversalClipboard.js` est le point d'entrée unique pour le presse-papiers
+bidirectionnel. Il accepte le texte ou les URL de fichiers originaux fournis
+par la feuille de partage et reçoit uniquement un identifiant de transfert
+depuis Pushcut. Les objets `Image` dépourvus de fichier source sont refusés.
+
+Le transport utilise Firebase Realtime Database sous
+`/apps/universalClipboard/v2`. Les fichiers sont découpés en blocs de 3 Mio,
+avec SHA-256 par bloc et par fichier. Les limites sont 25 Mio par fichier,
+10 fichiers et 100 Mio par transfert. Les fichiers reçus restent sous
+`iCloud Drive/Scriptable/Universal Clipboard/Received`.
+
+Après installation par `UpdateLibrary`, exécutez une fois le script avec le
+dictionnaire `{ "action": "configure" }` pour saisir le secret Firebase dans
+le Trousseau Scriptable. Le secret n'est jamais fourni dans un raccourci,
+Pushcut, Git ou un journal. Activez « Run in App » pour les fichiers
+volumineux, puis exécutez `ScriptableTests` avant tout trajet réel.
+
+La procédure complète et les portes de validation figurent dans
+`docs/UniversalClipboardV2Deployment.md`.

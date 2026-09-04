@@ -3,6 +3,7 @@
 // icon-color: purple; icon-glyph: vial;
 const publisher = importModule("PublishLibrary")
 const comptesCommuns = importModule("ComptesCommuns")
+const universalClipboard = importModule("UniversalClipboard")
 
 function assert(condition, message) {
   if (!condition) throw new Error(message)
@@ -28,6 +29,39 @@ async function run() {
     const expense = comptesCommuns.prepare(1, "Ignoré 99")
     assert(expense.objet === "", "Objet inattendu")
     assert(expense.montant === "1", "Montant numérique ignoré")
+  })
+  await test("Vecteurs Universal Clipboard v2", () => {
+    const adapter = {
+      toBase64: data => data.toBase64String(),
+      fromBase64: value => Data.fromBase64String(value),
+      getBytes: data => Uint8Array.from(data.getBytes()),
+      fromBytes: bytes => Data.fromBytes(Array.from(bytes)),
+      utf8Data: text => Data.fromString(text),
+      rawString: data => data.toRawString()
+    }
+    const vectors = [
+      { base64: "", sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" },
+      { base64: "aGVsbG8=", sha256: "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824" },
+      { base64: "AAF/gP8=", sha256: "0150a92bb1212cd00516b65fde0704614760000963874fcbb11eaa734ee87809" }
+    ]
+    for (const vector of vectors) {
+      const data = vector.base64 === "" ? Data.fromBytes([]) : Data.fromBase64String(vector.base64)
+      const split = universalClipboard.splitData(data, adapter)
+      assert(split.sha256 === vector.sha256, "SHA-256 Universal Clipboard différent")
+      const rebuilt = universalClipboard.assembleChunks(split.chunks, split.bytes, split.sha256, adapter)
+      assert(rebuilt.toBase64String() === vector.base64, "Round-trip Universal Clipboard différent")
+    }
+  })
+  await test("Limites et entrée Pushcut Universal Clipboard v2", () => {
+    const limits = universalClipboard.limits()
+    assert(limits.chunkBytes === 3145728, "Limite de bloc incorrecte")
+    assert(limits.fileBytes === 26214400, "Limite de fichier incorrecte")
+    const transferId = "00112233445566778899aabbccddeeff"
+    const invocation = universalClipboard.normalizeInvocation({
+      fileURLs: [], plainTexts: [], images: [], shortcutParameter: transferId
+    })
+    assert(invocation.action === "receive", "Action Pushcut incorrecte")
+    assert(invocation.transferId === transferId, "Identifiant Pushcut incorrect")
   })
   await test("Journal de transfert des comptes communs", async () => {
     let transfer = ""
