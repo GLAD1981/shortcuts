@@ -225,6 +225,7 @@ function memoryFirebaseRuntime(options = {}) {
   const values = new Map()
   return {
     calls,
+    binaryAdapter: nodeAdapter,
     nowTimestamp: () => options.nowTimestamp || "20260903120000",
     async firebaseRequest(method, logicalPath, body) {
       calls.push({ method, path: logicalPath, body })
@@ -272,7 +273,26 @@ test("publication Firebase interrompue ne rend jamais le transfert visible", asy
     clipboard.publishPreparedTransfer(prepared, runtime),
     /network-down/
   )
-  assert.equal(runtime.calls.some(call => call.path.startsWith("queues/")), false)
+  assert.equal(
+    runtime.calls.some(call => call.method === "PUT" && call.path.startsWith("queues/")),
+    false
+  )
+  assert.deepEqual(runtime.calls.slice(-3).map(call => `${call.method} ${call.path}`), [
+    `DELETE queues/toPc/${prepared.id}`,
+    `DELETE payloads/${prepared.id}`,
+    `DELETE index/${prepared.id}`
+  ])
+})
+
+test("publication valide tout le transfert avant la première requête", async () => {
+  const prepared = preparedHelloTransfer()
+  prepared.text.chunks[0].sha256 = "0".repeat(64)
+  const runtime = memoryFirebaseRuntime()
+  await assert.rejects(
+    clipboard.publishPreparedTransfer(prepared, runtime),
+    /invalid-prepared-transfer/
+  )
+  assert.deepEqual(runtime.calls, [])
 })
 
 test("publication Firebase refuse les métadonnées texte imbriquées", async () => {
@@ -281,7 +301,7 @@ test("publication Firebase refuse les métadonnées texte imbriquées", async ()
   const runtime = memoryFirebaseRuntime()
   await assert.rejects(
     clipboard.publishPreparedTransfer(prepared, runtime),
-    /invalid-text-payload/
+    /invalid-prepared-transfer/
   )
   assert.equal(
     runtime.calls.some(call => call.path === `payloads/${prepared.id}/text/meta`),
@@ -293,6 +313,7 @@ test("relecture Firebase accepte un ordre de propriétés JSON différent", asyn
   const base = memoryFirebaseRuntime()
   const runtime = {
     calls: base.calls,
+    binaryAdapter: base.binaryAdapter,
     nowTimestamp: base.nowTimestamp,
     async firebaseRequest(method, logicalPath, body) {
       const value = await base.firebaseRequest(method, logicalPath, body)
@@ -425,6 +446,40 @@ test("prépare des fichiers originaux séquentiels avec métadonnées plates", a
   assert.equal(prepared.files.every(file => Object.values(file.meta).every(value => typeof value !== "object")), true)
 })
 
+test("envoi Scriptable publie un fichier avant de charger le suivant", async () => {
+  const firebase = memoryFirebaseRuntime()
+  const effects = []
+  const files = {
+    first: { filename: "first.bin", mime: "application/octet-stream", data: Buffer.from("first") },
+    second: { filename: "second.bin", mime: "application/octet-stream", data: Buffer.from("second") }
+  }
+  const runtime = {
+    ...firebase,
+    generateTransferId: () => "00112233445566778899aabbccddeeff",
+    nowTimestamp: () => "20260903120000",
+    async firebaseRequest(method, logicalPath, body) {
+      effects.push(`${method} ${logicalPath}`)
+      return firebase.firebaseRequest(method, logicalPath, body)
+    },
+    async statFile(filePath) {
+      effects.push(`STAT ${filePath}`)
+      const file = files[filePath]
+      return { filename: file.filename, mime: file.mime, bytes: file.data.length, isDirectory: false }
+    },
+    async readFile(filePath) {
+      effects.push(`READ ${filePath}`)
+      const file = files[filePath]
+      return { ...file, bytes: file.data.length, isDirectory: false }
+    }
+  }
+  const result = await clipboard.send({ files: ["first", "second"], destination: "pc" }, runtime)
+  assert.equal(result.ok, true)
+  assert.ok(effects.indexOf("STAT first") < effects.indexOf("GET index"))
+  assert.ok(effects.indexOf("STAT second") < effects.indexOf("GET index"))
+  assert.ok(effects.indexOf("READ first") > effects.indexOf("PUT payloads/00112233445566778899aabbccddeeff/manifest"))
+  assert.ok(effects.indexOf("PUT payloads/00112233445566778899aabbccddeeff/files/f0001/chunks/c0001") < effects.indexOf("READ second"))
+})
+
 test("refuse les entrées d'envoi hors limites sans divulguer le fichier", async () => {
   const oversized = Buffer.alloc(26214401)
   const runtime = sendingRuntime({
@@ -446,7 +501,44 @@ test("refuse les entrées d'envoi hors limites sans divulguer le fichier", async
   }
 })
 
-function incomingRuntime({ kind = "text", imageCopyFails = false, deleteFailsOnce = false, nestedObject = null } = {}) {
+test("runtime Scriptable refuse la taille iCloud avant de charger les octets", async () => {
+  const effects = []
+  const cloud = {
+    isDirectory() { effects.push("directory"); return false },
+    async downloadFileFromiCloud() { effects.push("download") },
+    fileSize() { effects.push("size"); return 26214.401 }
+  }
+  await assert.rejects(
+    clipboard.readScriptableFile("file:///Documents/large.bin", {
+      cloud,
+      dataFromFile() { effects.push("read"); throw new Error("must-not-read") }
+    }),
+    error => error && error.code === "file-too-large"
+  )
+  assert.deepEqual(effects, ["directory", "download", "size"])
+})
+
+test("runtime Scriptable calcule les octets exacts après le précontrôle en kilo-octets", async () => {
+  const result = await clipboard.readScriptableFile("file:///Documents/five.bin", {
+    cloud: {
+      isDirectory: () => false,
+      async downloadFileFromiCloud() {},
+      fileSize: () => 0.005
+    },
+    dataFromFile: () => ({ toBase64String: () => "aGVsbG8=" })
+  })
+  assert.equal(result.bytes, 5)
+})
+
+function incomingRuntime({
+  kind = "text",
+  imageCopyFails = false,
+  imageDecodeFails = false,
+  deleteFailsOnce = false,
+  nestedObject = null,
+  advertisedTotalBytes = null,
+  corruptChunkReads = 0
+} = {}) {
   const id = "00112233445566778899aabbccddeeff"
   const data = kind === "text" ? Buffer.from("hello") : Buffer.from([0x89, 0x50, 0x4e, 0x47])
   const split = clipboard.splitData(data, nodeAdapter)
@@ -456,7 +548,7 @@ function incomingRuntime({ kind = "text", imageCopyFails = false, deleteFailsOnc
     state: "ready",
     kind,
     fileCount: kind === "text" ? 0 : 1,
-    totalBytes: data.length,
+    totalBytes: advertisedTotalBytes == null ? data.length : advertisedTotalBytes,
     encodedBytes: data.toString("base64").length
   })
   const store = new Map([
@@ -468,7 +560,7 @@ function incomingRuntime({ kind = "text", imageCopyFails = false, deleteFailsOnc
       destination: "iphone",
       kind,
       fileCount: index.fileCount,
-      totalBytes: data.length
+      totalBytes: index.totalBytes
     }]
   ])
   if (kind === "text") {
@@ -509,6 +601,7 @@ function incomingRuntime({ kind = "text", imageCopyFails = false, deleteFailsOnc
   const effects = []
   let applied = {}
   let remainingDeleteFailures = deleteFailsOnce ? 3 : 0
+  let remainingCorruptChunkReads = corruptChunkReads
   return {
     id,
     effects,
@@ -516,7 +609,14 @@ function incomingRuntime({ kind = "text", imageCopyFails = false, deleteFailsOnc
     nowTimestamp: () => "20260903130000",
     async firebaseRequest(method, logicalPath) {
       effects.push(`${method} ${logicalPath}`)
-      if (method === "GET") return store.get(logicalPath) ?? null
+      if (method === "GET") {
+        const value = store.get(logicalPath) ?? null
+        if (remainingCorruptChunkReads > 0 && logicalPath.includes("/chunks/")) {
+          remainingCorruptChunkReads--
+          return { ...value, data: "d29ybGQ=" }
+        }
+        return value
+      }
       if (method === "DELETE") {
         if (remainingDeleteFailures > 0) {
           remainingDeleteFailures--
@@ -527,6 +627,7 @@ function incomingRuntime({ kind = "text", imageCopyFails = false, deleteFailsOnc
       }
       throw new Error(`unexpected-${method}`)
     },
+    async delay(milliseconds) { effects.push(`DELAY ${milliseconds}`) },
     loadApplied: () => ({ ...applied }),
     saveApplied(value) { applied = { ...value }; effects.push("SAVE applied") },
     copyString(value) { effects.push(`COPY text ${value}`) },
@@ -539,13 +640,42 @@ function incomingRuntime({ kind = "text", imageCopyFails = false, deleteFailsOnc
       return staged.map(file => ({ ...file, path: `/received/${file.filename}` }))
     },
     async cleanupStaged() { effects.push("CLEANUP staged") },
-    imageFromFile(path) { effects.push(`IMAGE ${path}`); return { path } },
+    imageFromFile(path) {
+      effects.push(`IMAGE ${path}`)
+      if (imageDecodeFails) throw new Error("image-decode-failed")
+      return { path }
+    },
     copyImage() {
       effects.push("COPY image")
       if (imageCopyFails) throw new Error("pasteboard-image-failed")
     }
   }
 }
+
+test("réception relit uniquement un bloc corrompu avant de l'appliquer", async () => {
+  const runtime = incomingRuntime({ corruptChunkReads: 2 })
+  const result = await clipboard.receive(runtime.id, runtime)
+  assert.equal(result.ok, true)
+  assert.equal(
+    runtime.effects.filter(effect => effect.endsWith("/chunks/c0001")).length,
+    3
+  )
+  assert.deepEqual(
+    runtime.effects.filter(effect => effect.startsWith("DELAY ")),
+    ["DELAY 1000", "DELAY 5000"]
+  )
+  assert.equal(runtime.effects.filter(effect => effect === "COPY text hello").length, 1)
+})
+
+test("réception recoupe les tailles agrégées avec l'index", async () => {
+  for (const kind of ["text", "files"]) {
+    const runtime = incomingRuntime({ kind, advertisedTotalBytes: 1 })
+    const result = await clipboard.receive(runtime.id, runtime)
+    assert.deepEqual(result, { ok: false, error: "receive-failed" }, kind)
+    assert.equal(runtime.effects.some(effect => effect.startsWith("COPY ")), false, kind)
+    assert.equal(runtime.effects.includes("COMMIT files"), false, kind)
+  }
+})
 
 test("réception refuse chaque objet Firebase imbriqué", async () => {
   const cases = [
@@ -582,6 +712,37 @@ test("nom sûr neutralise les composants et résout les collisions", () => {
   assert.equal(clipboard.safeFilename("...", () => false), "file")
 })
 
+test("commit iCloud restaure les fichiers déjà déplacés si le suivant échoue", async () => {
+  const moves = []
+  let forwardMoves = 0
+  const staged = [
+    { transferId: "00112233445566778899aabbccddeeff", filename: "a.txt", stagedPath: "/staging/a.txt" },
+    { transferId: "00112233445566778899aabbccddeeff", filename: "b.txt", stagedPath: "/staging/b.txt" }
+  ]
+  const storage = {
+    receivedRoot: "/received",
+    joinPath: (root, name) => `${root}/${name}`,
+    fileExists: () => false,
+    createDirectory() {},
+    move(from, to) {
+      moves.push(`${from} -> ${to}`)
+      if (from.startsWith("/staging/")) {
+        forwardMoves++
+        if (forwardMoves === 2) throw new Error("second-move-failed")
+      }
+    }
+  }
+  await assert.rejects(
+    clipboard.commitStagedFiles(staged, storage),
+    /second-move-failed/
+  )
+  assert.deepEqual(moves, [
+    "/staging/a.txt -> /received/a.txt",
+    "/staging/b.txt -> /received/b.txt",
+    "/received/a.txt -> /staging/a.txt"
+  ])
+})
+
 test("réception image conserve le fichier et tolère l'échec du presse-papiers", async () => {
   const runtime = incomingRuntime({ kind: "files", imageCopyFails: true })
   const result = await clipboard.receive(runtime.id, runtime)
@@ -596,6 +757,20 @@ test("réception image conserve le fichier et tolère l'échec du presse-papiers
   const commit = runtime.effects.indexOf("COMMIT files")
   const copy = runtime.effects.indexOf("COPY image")
   assert.ok(stage >= 0 && commit > stage && copy > commit)
+})
+
+test("réception image tolère aussi l'échec du décodage secondaire", async () => {
+  const runtime = incomingRuntime({ kind: "files", imageDecodeFails: true })
+  const result = await clipboard.receive(runtime.id, runtime)
+  assert.deepEqual(result, {
+    ok: true,
+    kind: "files",
+    fileCount: 1,
+    degraded: true,
+    cleanupPending: false
+  })
+  assert.equal(runtime.effects.includes("COMMIT files"), true)
+  assert.equal(runtime.effects.includes("SAVE applied"), true)
 })
 
 test("normalise les arguments Scriptable avec priorité aux fichiers originaux", () => {

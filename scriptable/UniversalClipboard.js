@@ -355,11 +355,59 @@ function validateManifest(manifest, index) {
     manifest.fileCount === index.fileCount && manifest.totalBytes === index.totalBytes
 }
 
-function validatePreparedChunk(chunk, expectedId) {
-  return isFlatObject(chunk) &&
+function validatePreparedChunk(chunk, expectedId, adapter = null) {
+  const valid = isFlatObject(chunk) &&
     chunk.id === expectedId && isIntegerInRange(chunk.bytes, 1, LIMITS.chunkBytes) &&
     typeof chunk.sha256 === "string" && /^[0-9a-f]{64}$/.test(chunk.sha256) &&
     typeof chunk.data === "string" && base64ByteLength(chunk.data) === chunk.bytes
+  if (!valid || !adapter) return valid
+  const decoded = decodeCanonical(chunk.data, adapter)
+  return decoded != null && sha256Hex(decoded.bytes) === chunk.sha256
+}
+
+function validatePreparedChunks(chunks, meta, adapter) {
+  if (!Array.isArray(chunks) || !meta || chunks.length !== meta.chunkCount ||
+    chunks.length !== expectedChunkCount(meta.bytes)) return null
+  let bytes = 0
+  let encodedBytes = 0
+  const wholeHash = new Sha256()
+  for (let index = 0; index < chunks.length; index++) {
+    const chunk = chunks[index]
+    if (!validatePreparedChunk(chunk, chunkId(index + 1), adapter)) return null
+    if (index < chunks.length - 1 && chunk.bytes !== LIMITS.chunkBytes) return null
+    const decoded = decodeCanonical(chunk.data, adapter)
+    if (!decoded) return null
+    bytes += chunk.bytes
+    encodedBytes += chunk.data.length
+    wholeHash.update(decoded.bytes)
+  }
+  if (bytes !== meta.bytes || wholeHash.digestHex() !== meta.sha256) return null
+  return { bytes, encodedBytes }
+}
+
+function validatePreparedTransfer(prepared, adapter) {
+  if (!prepared || !isTransferId(prepared.id) || !validateIndex(prepared.index) ||
+    prepared.index.state !== "uploading" || !validateManifest(prepared.manifest, prepared.index) ||
+    !adapter) return false
+  if (prepared.index.kind === "text") {
+    if (!prepared.text || !validateTextMeta(prepared.text.meta) ||
+      prepared.text.meta.bytes !== prepared.index.totalBytes) return false
+    const summary = validatePreparedChunks(prepared.text.chunks, prepared.text.meta, adapter)
+    return summary != null && summary.encodedBytes === prepared.index.encodedBytes
+  }
+  if (!Array.isArray(prepared.files) || prepared.files.length !== prepared.index.fileCount) return false
+  let totalBytes = 0
+  let encodedBytes = 0
+  for (let index = 0; index < prepared.files.length; index++) {
+    const file = prepared.files[index]
+    if (!file || file.id !== fileId(index + 1) || !validateFileMeta(file.meta)) return false
+    const summary = validatePreparedChunks(file.chunks, file.meta, adapter)
+    if (!summary) return false
+    totalBytes += summary.bytes
+    encodedBytes += summary.encodedBytes
+  }
+  return totalBytes === prepared.index.totalBytes &&
+    encodedBytes === prepared.index.encodedBytes && totalBytes <= LIMITS.transferBytes
 }
 
 async function cleanupExpiredAndCount(runtime) {
@@ -382,8 +430,7 @@ async function cleanupExpiredAndCount(runtime) {
 }
 
 async function publishPreparedTransfer(prepared, runtime) {
-  if (!prepared || !isTransferId(prepared.id) || !validateIndex(prepared.index) ||
-    prepared.index.state !== "uploading" || !validateManifest(prepared.manifest, prepared.index)) {
+  if (!validatePreparedTransfer(prepared, runtime && runtime.binaryAdapter)) {
     throw new Error("invalid-prepared-transfer")
   }
   const client = createFirebaseClient(runtime)
@@ -392,8 +439,11 @@ async function publishPreparedTransfer(prepared, runtime) {
   }
   const indexPath = firebasePath("index", prepared.id)
   const manifestPath = firebasePath("payloads", prepared.id, "manifest")
-  await client.put(indexPath, prepared.index)
-  await client.put(manifestPath, prepared.manifest)
+  let remoteStarted = false
+  try {
+    remoteStarted = true
+    await client.put(indexPath, prepared.index)
+    await client.put(manifestPath, prepared.manifest)
 
   const critical = [[indexPath, prepared.index], [manifestPath, prepared.manifest]]
   if (prepared.index.kind === "text") {
@@ -444,12 +494,20 @@ async function publishPreparedTransfer(prepared, runtime) {
   }
   await client.patch(indexPath, { state: "ready" })
   const queue = prepared.index.destination === "pc" ? "toPc" : "toIphone"
-  await client.put(firebasePath("queues", queue, prepared.id), {
-    version: 2,
-    created: prepared.index.created,
-    kind: prepared.index.kind
-  })
-  return prepared.id
+    await client.put(firebasePath("queues", queue, prepared.id), {
+      version: 2,
+      created: prepared.index.created,
+      kind: prepared.index.kind
+    })
+    return prepared.id
+  } catch (error) {
+    if (remoteStarted) {
+      try {
+        await deleteReceivedTransfer(prepared.id, prepared.index.destination, runtime)
+      } catch (_) {}
+    }
+    throw error
+  }
 }
 
 async function deleteReceivedTransfer(transferId, destination, runtime) {
@@ -570,12 +628,125 @@ async function prepareFileTransfer(paths, destination = "pc", runtime) {
   return prepared
 }
 
+async function preflightFileTransfer(paths, destination, runtime) {
+  if (!Array.isArray(paths) || paths.length === 0) throw codedError("files-required")
+  if (paths.length > LIMITS.fileCount) throw codedError("too-many-files")
+  if (!runtime || typeof runtime.statFile !== "function" ||
+    typeof runtime.readFile !== "function" || !runtime.binaryAdapter) {
+    throw codedError("file-runtime-missing")
+  }
+  const files = []
+  let totalBytes = 0
+  let encodedBytes = 0
+  for (let index = 0; index < paths.length; index++) {
+    const sourcePath = paths[index]
+    if (typeof sourcePath !== "string" || sourcePath.length === 0) throw codedError("file-unavailable")
+    const info = await runtime.statFile(sourcePath)
+    if (!info || info.isDirectory) throw codedError(info && info.isDirectory ? "folder-not-supported" : "file-unavailable")
+    if (typeof info.filename !== "string" || info.filename.length === 0 || /[\\/]/.test(info.filename)) {
+      throw codedError("invalid-filename")
+    }
+    if (!Number.isInteger(info.bytes) || info.bytes < 0) throw codedError("file-unavailable")
+    if (info.bytes > LIMITS.fileBytes) throw codedError("file-too-large")
+    totalBytes += info.bytes
+    if (totalBytes > LIMITS.transferBytes) throw codedError("transfer-too-large")
+    encodedBytes += Math.ceil(info.bytes / 3) * 4
+    files.push({
+      id: fileId(index + 1),
+      sourcePath,
+      filename: info.filename,
+      mime: typeof info.mime === "string" && /^[^\s/]+\/[^\s/]+$/.test(info.mime)
+        ? info.mime : "application/octet-stream",
+      bytes: info.bytes
+    })
+  }
+  const prepared = transferScaffold("files", destination, totalBytes, encodedBytes, files.length, runtime)
+  prepared.files = files
+  return prepared
+}
+
+async function publishFilePaths(paths, destination, runtime) {
+  const prepared = await preflightFileTransfer(paths, destination, runtime)
+  const client = createFirebaseClient(runtime)
+  if (await cleanupExpiredAndCount(runtime) >= LIMITS.pendingTransfers) {
+    throw codedError("pending-transfer-limit")
+  }
+  const indexPath = firebasePath("index", prepared.id)
+  const manifestPath = firebasePath("payloads", prepared.id, "manifest")
+  let remoteStarted = false
+  try {
+    remoteStarted = true
+    await client.put(indexPath, prepared.index)
+    await client.put(manifestPath, prepared.manifest)
+    const critical = [[indexPath, prepared.index], [manifestPath, prepared.manifest]]
+    let observedTotalBytes = 0
+    let observedEncodedBytes = 0
+    for (const file of prepared.files) {
+      const source = await runtime.readFile(file.sourcePath)
+      if (!source || source.isDirectory || source.filename !== file.filename) {
+        throw codedError("file-source-changed")
+      }
+      const observedBytes = Number.isInteger(source.bytes)
+        ? source.bytes
+        : base64ByteLength(runtime.binaryAdapter.toBase64(source.data))
+      if (observedBytes !== file.bytes) throw codedError("file-source-changed")
+      const split = splitData(source.data, runtime.binaryAdapter)
+      if (!split || split.bytes !== file.bytes) throw codedError("file-read-mismatch")
+      const meta = {
+        filename: file.filename,
+        mime: file.mime,
+        bytes: split.bytes,
+        sha256: split.sha256,
+        chunkCount: split.chunks.length
+      }
+      if (!validateFileMeta(meta)) throw codedError("invalid-file-meta")
+      const metaPath = firebasePath("payloads", prepared.id, "files", file.id, "meta")
+      await client.put(metaPath, meta)
+      critical.push([metaPath, meta])
+      for (let index = 0; index < split.chunks.length; index++) {
+        const chunk = split.chunks[index]
+        if (!validatePreparedChunk(chunk, chunkId(index + 1), runtime.binaryAdapter)) {
+          throw codedError("invalid-file-chunk")
+        }
+        await client.put(firebasePath("payloads", prepared.id, "files", file.id, "chunks", chunk.id), {
+          bytes: chunk.bytes,
+          sha256: chunk.sha256,
+          data: chunk.data
+        })
+      }
+      observedTotalBytes += split.bytes
+      observedEncodedBytes += split.chunks.reduce((total, chunk) => total + chunk.data.length, 0)
+    }
+    if (observedTotalBytes !== prepared.index.totalBytes ||
+      observedEncodedBytes !== prepared.index.encodedBytes) throw codedError("file-source-changed")
+    for (const [path, expected] of critical) {
+      if (!sameObject(await client.get(path), expected)) throw codedError("firebase-readback-mismatch")
+    }
+    await client.patch(indexPath, { state: "ready" })
+    await client.put(firebasePath("queues", "toPc", prepared.id), {
+      version: 2,
+      created: prepared.index.created,
+      kind: "files"
+    })
+    return prepared.id
+  } catch (error) {
+    if (remoteStarted) {
+      try { await deleteReceivedTransfer(prepared.id, destination, runtime) } catch (_) {}
+    }
+    throw error
+  }
+}
+
 async function send(input, runtime) {
   try {
     if (!input || typeof input !== "object") throw codedError("input-required")
     const destination = input.destination || "pc"
     let prepared
     if (Array.isArray(input.files) && input.files.length > 0) {
+      if (runtime && typeof runtime.statFile === "function") {
+        const transferId = await publishFilePaths(input.files, destination, runtime)
+        return { ok: true, transferId, kind: "files" }
+      }
       prepared = await prepareFileTransfer(input.files, destination, runtime)
     } else if (Array.isArray(input.images) && input.images.length > 0) {
       throw codedError("image-original-required")
@@ -622,13 +793,25 @@ function activeAppliedEntries(entries, nowTimestamp) {
   return active
 }
 
-async function readChunks(client, transferId, prefix, count) {
+async function readChunks(client, transferId, prefix, count, runtime) {
   const chunks = []
+  const delays = [1000, 5000]
   for (let index = 1; index <= count; index++) {
     const id = chunkId(index)
-    const chunk = await client.get(firebasePath("payloads", transferId, ...prefix, "chunks", id))
-    if (!validatePreparedChunk({ id, ...chunk }, id)) throw codedError("invalid-chunk")
-    chunks.push({ id, bytes: chunk.bytes, sha256: chunk.sha256, data: chunk.data })
+    const path = firebasePath("payloads", transferId, ...prefix, "chunks", id)
+    let accepted = null
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const chunk = await client.get(path)
+      if (validatePreparedChunk({ id, ...chunk }, id, runtime.binaryAdapter)) {
+        accepted = chunk
+        break
+      }
+      if (attempt < 2 && typeof runtime.delay === "function") {
+        await runtime.delay(delays[attempt])
+      }
+    }
+    if (!accepted) throw codedError("invalid-chunk")
+    chunks.push({ id, bytes: accepted.bytes, sha256: accepted.sha256, data: accepted.data })
   }
   return chunks
 }
@@ -671,8 +854,10 @@ async function receive(transferId, runtime) {
   try {
     if (index.kind === "text") {
       const meta = await client.get(firebasePath("payloads", transferId, "text", "meta"))
-      if (!validateTextMeta(meta)) throw codedError("invalid-text-meta")
-      const chunks = await readChunks(client, transferId, ["text"], meta.chunkCount)
+      if (!validateTextMeta(meta) || meta.bytes !== index.totalBytes) {
+        throw codedError("invalid-text-meta")
+      }
+      const chunks = await readChunks(client, transferId, ["text"], meta.chunkCount, runtime)
       const data = assembleChunks(chunks, meta.bytes, meta.sha256, runtime.binaryAdapter)
       if (data == null) throw codedError("invalid-text-data")
       const text = runtime.binaryAdapter.rawString(data)
@@ -683,24 +868,28 @@ async function receive(transferId, runtime) {
       runtime.copyString(text)
     } else {
       const staged = []
+      let observedTotalBytes = 0
       for (let index = 1; index <= manifest.fileCount; index++) {
         const id = fileId(index)
         const meta = await client.get(firebasePath("payloads", transferId, "files", id, "meta"))
         if (!validateFileMeta(meta)) throw codedError("invalid-file-meta")
-        const chunks = await readChunks(client, transferId, ["files", id], meta.chunkCount)
+        observedTotalBytes += meta.bytes
+        if (observedTotalBytes > LIMITS.transferBytes) throw codedError("transfer-too-large")
+        const chunks = await readChunks(client, transferId, ["files", id], meta.chunkCount, runtime)
         const data = assembleChunks(chunks, meta.bytes, meta.sha256, runtime.binaryAdapter)
         if (data == null) throw codedError("invalid-file-data")
         const filename = safeFilename(meta.filename, runtime.receivedFileExists || (() => false))
         if (!filename) throw codedError("filename-collision")
         staged.push(await runtime.stageFile(transferId, id, filename, data, meta.mime))
       }
+      if (observedTotalBytes !== index.totalBytes) throw codedError("invalid-total-bytes")
       const committed = await runtime.commitFiles(staged)
       fileCount = committed.length
       for (const file of committed) {
         if (!file.mime.startsWith("image/")) continue
-        const image = runtime.imageFromFile(file.path)
-        if (!image) continue
         try {
+          const image = runtime.imageFromFile(file.path)
+          if (!image) continue
           runtime.copyImage(image)
         } catch (_) {
           degraded = true
@@ -771,6 +960,78 @@ function scriptableFilePath(value) {
   }
 }
 
+async function inspectScriptableFile(value, dependencies) {
+  const filePath = scriptableFilePath(value)
+  const cloud = dependencies && dependencies.cloud
+  if (!cloud || typeof cloud.fileSize !== "function") throw codedError("file-runtime-missing")
+  let isDirectory = false
+  try { isDirectory = cloud.isDirectory(filePath) } catch (_) {}
+  if (isDirectory) return { isDirectory: true }
+  try { await cloud.downloadFileFromiCloud(filePath) } catch (_) {}
+  let sizeKilobytes
+  try { sizeKilobytes = cloud.fileSize(filePath) } catch (_) { throw codedError("file-unavailable") }
+  if (typeof sizeKilobytes !== "number" || !Number.isFinite(sizeKilobytes) || sizeKilobytes < 0) {
+    throw codedError("file-unavailable")
+  }
+  if (sizeKilobytes > LIMITS.fileBytes / 1000) throw codedError("file-too-large")
+  const filename = filePath.split(/[\\/]/).pop() || "file"
+  return { filePath, filename, mime: mimeForFilename(filename), sizeKilobytes, isDirectory: false }
+}
+
+async function readScriptableFile(value, dependencies) {
+  if (!dependencies || typeof dependencies.dataFromFile !== "function") {
+    throw codedError("file-runtime-missing")
+  }
+  const info = await inspectScriptableFile(value, dependencies)
+  if (info.isDirectory) return info
+  const data = dependencies.dataFromFile(info.filePath)
+  if (!data) throw codedError("file-unavailable")
+  const bytes = typeof data.toBase64String === "function"
+    ? base64ByteLength(data.toBase64String()) : null
+  if (!Number.isInteger(bytes) || bytes < 0) throw codedError("file-unavailable")
+  if (bytes > LIMITS.fileBytes) throw codedError("file-too-large")
+  return { ...info, data, bytes }
+}
+
+async function commitStagedFiles(staged, storage) {
+  if (!Array.isArray(staged) || !storage || typeof storage.move !== "function") {
+    throw codedError("file-commit-runtime-missing")
+  }
+  if (!storage.fileExists(storage.receivedRoot)) {
+    storage.createDirectory(storage.receivedRoot, true)
+  }
+  const reserved = new Set()
+  const planned = staged.map(file => {
+    const filename = safeFilename(file.filename, candidate =>
+      reserved.has(candidate) || storage.fileExists(storage.joinPath(storage.receivedRoot, candidate)))
+    if (!filename) throw codedError("filename-collision")
+    reserved.add(filename)
+    return { ...file, filename, path: storage.joinPath(storage.receivedRoot, filename) }
+  })
+  const moved = []
+  try {
+    for (const file of planned) {
+      storage.move(file.stagedPath, file.path)
+      moved.push(file)
+    }
+  } catch (error) {
+    let rollbackFailed = false
+    for (let index = moved.length - 1; index >= 0; index--) {
+      try {
+        storage.move(moved[index].path, moved[index].stagedPath)
+      } catch (_) {
+        rollbackFailed = true
+      }
+    }
+    if (rollbackFailed) throw codedError("file-commit-rollback-failed")
+    throw error
+  }
+  if (planned.length > 0 && typeof storage.cleanupTransfer === "function") {
+    storage.cleanupTransfer(planned[0].transferId)
+  }
+  return planned
+}
+
 function createScriptableRuntime() {
   const binaryAdapter = {
     toBase64: data => data.toBase64String(),
@@ -813,16 +1074,20 @@ function createScriptableRuntime() {
       if (!status || status < 200 || status >= 300) throw codedError("firebase-request-failed")
       return response.trim() === "" ? null : JSON.parse(response)
     },
+    async statFile(value) {
+      const source = await readScriptableFile(value, {
+        cloud,
+        dataFromFile: path => Data.fromFile(path)
+      })
+      return {
+        filename: source.filename,
+        mime: source.mime,
+        bytes: source.bytes,
+        isDirectory: source.isDirectory
+      }
+    },
     async readFile(value) {
-      const filePath = scriptableFilePath(value)
-      let isDirectory = false
-      try { isDirectory = cloud.isDirectory(filePath) } catch (_) {}
-      if (isDirectory) return { isDirectory: true }
-      try { await cloud.downloadFileFromiCloud(filePath) } catch (_) {}
-      const data = Data.fromFile(filePath)
-      if (!data) throw codedError("file-unavailable")
-      const filename = filePath.split(/[\\/]/).pop() || "file"
-      return { filename, mime: mimeForFilename(filename), data, isDirectory: false }
+      return readScriptableFile(value, { cloud, dataFromFile: path => Data.fromFile(path) })
     },
     loadApplied() {
       if (!local.fileExists(appliedPath)) return {}
@@ -856,21 +1121,17 @@ function createScriptableRuntime() {
       return { transferId, id, filename, mime, stagedPath }
     },
     async commitFiles(staged) {
-      if (!cloud.fileExists(receivedRoot)) cloud.createDirectory(receivedRoot, true)
-      const reserved = new Set()
-      const planned = staged.map(file => {
-        const filename = safeFilename(file.filename, candidate =>
-          reserved.has(candidate) || cloud.fileExists(cloud.joinPath(receivedRoot, candidate)))
-        if (!filename) throw codedError("filename-collision")
-        reserved.add(filename)
-        return { ...file, filename, path: cloud.joinPath(receivedRoot, filename) }
+      return commitStagedFiles(staged, {
+        receivedRoot,
+        joinPath: (root, name) => cloud.joinPath(root, name),
+        fileExists: path => cloud.fileExists(path),
+        createDirectory: (path, intermediates) => cloud.createDirectory(path, intermediates),
+        move: (from, to) => cloud.move(from, to),
+        cleanupTransfer(transferId) {
+          const transferRoot = cloud.joinPath(stagingRoot, transferId)
+          if (cloud.fileExists(transferRoot)) cloud.remove(transferRoot)
+        }
       })
-      for (const file of planned) cloud.move(file.stagedPath, file.path)
-      if (planned.length > 0) {
-        const transferRoot = cloud.joinPath(stagingRoot, planned[0].transferId)
-        if (cloud.fileExists(transferRoot)) cloud.remove(transferRoot)
-      }
-      return planned
     },
     async cleanupStaged(transferId) {
       const transferRoot = cloud.joinPath(stagingRoot, transferId)
@@ -919,6 +1180,7 @@ module.exports = {
   Sha256,
   assembleChunks,
   chunkId,
+  commitStagedFiles,
   createFirebaseClient,
   deleteReceivedTransfer,
   expectedChunkCount,
@@ -930,6 +1192,7 @@ module.exports = {
   prepareFileTransfer,
   prepareTextTransfer,
   publishPreparedTransfer,
+  readScriptableFile,
   receive,
   runInvocation,
   runShortcut,

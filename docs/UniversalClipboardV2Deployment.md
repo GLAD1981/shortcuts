@@ -50,9 +50,10 @@ Le raccourci conserve l'interface native et appelle un seul script.
   les URL de fichiers ont priorité sur le texte.
 
 Le script refuse les dossiers, les objets Image sans fichier original, plus de
-10 fichiers, plus de 25 Mio par fichier ou plus de 100 Mio au total. La file
-Firebase n'est publiée qu'après l'index, le manifeste, les métadonnées, tous
-les blocs et leur relecture.
+10 fichiers, plus de 25 Mio par fichier ou plus de 100 Mio au total. Les
+fichiers sont chargés et publiés l'un après l'autre afin de borner la mémoire à
+un fichier. La file Firebase n'est publiée qu'après l'index, le manifeste, les
+métadonnées, tous les blocs et la relecture des valeurs critiques.
 
 ## 4. Construire la réception PC → iPhone
 

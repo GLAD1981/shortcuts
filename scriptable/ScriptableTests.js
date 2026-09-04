@@ -63,6 +63,82 @@ async function run() {
     assert(invocation.action === "receive", "Action Pushcut incorrecte")
     assert(invocation.transferId === transferId, "Identifiant Pushcut incorrect")
   })
+  await test("Aller-retour injecté Universal Clipboard v2", async () => {
+    const adapter = {
+      toBase64: data => data.toBase64String(),
+      fromBase64: value => Data.fromBase64String(value),
+      getBytes: data => Uint8Array.from(data.getBytes()),
+      fromBytes: bytes => Data.fromBytes(Array.from(bytes)),
+      utf8Data: text => Data.fromString(text),
+      rawString: data => data.toRawString()
+    }
+    const transferId = "00112233445566778899aabbccddeeff"
+    const calls = []
+    const store = new Map()
+    const firebaseRequest = async (method, path, body) => {
+      calls.push(`${method} ${path}`)
+      if (method === "GET") return store.get(path) || null
+      if (method === "PUT") store.set(path, JSON.parse(JSON.stringify(body)))
+      if (method === "PATCH") store.set(path, { ...(store.get(path) || {}), ...body })
+      if (method === "DELETE") store.delete(path)
+      return body == null ? null : body
+    }
+    const publishRuntime = {
+      binaryAdapter: adapter,
+      generateTransferId: () => transferId,
+      nowTimestamp: () => "20260904120000",
+      firebaseRequest,
+      async delay() {}
+    }
+    const prepared = await universalClipboard.prepareTextTransfer("hello", "pc", publishRuntime)
+    await universalClipboard.publishPreparedTransfer(prepared, publishRuntime)
+    assert(calls[calls.length - 1] === `PUT queues/toPc/${transferId}`, "File publiée trop tôt")
+
+    const incomingData = Data.fromString("hello")
+    const incomingSplit = universalClipboard.splitData(incomingData, adapter)
+    const incomingIndex = {
+      version: 2, source: "pc", destination: "iphone",
+      created: "20260904120000", expires: "20260911120000", state: "ready",
+      kind: "text", fileCount: 0, totalBytes: 5, encodedBytes: 8
+    }
+    store.set(`queues/toIphone/${transferId}`, {
+      version: 2, created: incomingIndex.created, kind: "text"
+    })
+    store.set(`index/${transferId}`, incomingIndex)
+    store.set(`payloads/${transferId}/manifest`, {
+      version: 2, source: "pc", destination: "iphone", kind: "text",
+      fileCount: 0, totalBytes: 5
+    })
+    store.set(`payloads/${transferId}/text/meta`, {
+      bytes: 5, sha256: incomingSplit.sha256, chunkCount: 1
+    })
+    store.set(`payloads/${transferId}/text/chunks/c0001`, {
+      bytes: 5, sha256: incomingSplit.chunks[0].sha256, data: incomingSplit.chunks[0].data
+    })
+    let applied = {}
+    let deleteFailures = 3
+    let copies = 0
+    const receiveRuntime = {
+      binaryAdapter: adapter,
+      nowTimestamp: () => "20260904120100",
+      async firebaseRequest(method, path, body) {
+        if (method === "DELETE" && deleteFailures > 0) {
+          deleteFailures--
+          throw new Error("injected-delete-failure")
+        }
+        return firebaseRequest(method, path, body)
+      },
+      async delay() {},
+      loadApplied: () => ({ ...applied }),
+      saveApplied: value => { applied = { ...value } },
+      copyString: value => { assert(value === "hello", "Texte reçu incorrect"); copies++ }
+    }
+    const first = await universalClipboard.receive(transferId, receiveRuntime)
+    const second = await universalClipboard.receive(transferId, receiveRuntime)
+    assert(first.ok && first.cleanupPending, "Première réception injectée incorrecte")
+    assert(second.ok && second.duplicate, "Idempotence injectée incorrecte")
+    assert(copies === 1, "Effet local Universal Clipboard répété")
+  })
   await test("Journal de transfert des comptes communs", async () => {
     let transfer = ""
     await comptesCommuns.run("", {
