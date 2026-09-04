@@ -897,7 +897,11 @@ async function receive(transferId, runtime) {
       }
     }
   } catch (_) {
-    if (typeof runtime.cleanupStaged === "function") await runtime.cleanupStaged(transferId)
+    if (typeof runtime.cleanupStaged === "function") {
+      try {
+        await runtime.cleanupStaged(transferId)
+      } catch (_) {}
+    }
     return { ok: false, error: "receive-failed" }
   }
 
@@ -1027,7 +1031,9 @@ async function commitStagedFiles(staged, storage) {
     throw error
   }
   if (planned.length > 0 && typeof storage.cleanupTransfer === "function") {
-    storage.cleanupTransfer(planned[0].transferId)
+    try {
+      storage.cleanupTransfer(planned[0].transferId)
+    } catch (_) {}
   }
   return planned
 }

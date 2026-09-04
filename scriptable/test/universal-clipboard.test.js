@@ -535,6 +535,7 @@ function incomingRuntime({
   imageCopyFails = false,
   imageDecodeFails = false,
   deleteFailsOnce = false,
+  cleanupStagedFails = false,
   nestedObject = null,
   advertisedTotalBytes = null,
   corruptChunkReads = 0
@@ -639,7 +640,10 @@ function incomingRuntime({
       effects.push("COMMIT files")
       return staged.map(file => ({ ...file, path: `/received/${file.filename}` }))
     },
-    async cleanupStaged() { effects.push("CLEANUP staged") },
+    async cleanupStaged() {
+      effects.push("CLEANUP staged")
+      if (cleanupStagedFails) throw new Error("cleanup-staged-failed")
+    },
     imageFromFile(path) {
       effects.push(`IMAGE ${path}`)
       if (imageDecodeFails) throw new Error("image-decode-failed")
@@ -665,6 +669,12 @@ test("réception relit uniquement un bloc corrompu avant de l'appliquer", async 
     ["DELAY 1000", "DELAY 5000"]
   )
   assert.equal(runtime.effects.filter(effect => effect === "COPY text hello").length, 1)
+})
+
+test("échec du nettoyage staging ne masque pas un refus de réception", async () => {
+  const runtime = incomingRuntime({ corruptChunkReads: 3, cleanupStagedFails: true })
+  const result = await clipboard.receive(runtime.id, runtime)
+  assert.deepEqual(result, { ok: false, error: "receive-failed" })
 })
 
 test("réception recoupe les tailles agrégées avec l'index", async () => {
@@ -741,6 +751,46 @@ test("commit iCloud restaure les fichiers déjà déplacés si le suivant échou
     "/staging/b.txt -> /received/b.txt",
     "/received/a.txt -> /staging/a.txt"
   ])
+})
+
+test("commit iCloud conserve le succès si le nettoyage du staging échoue", async () => {
+  const staged = [
+    { transferId: "00112233445566778899aabbccddeeff", filename: "a.txt", stagedPath: "/staging/a.txt" }
+  ]
+  const planned = await clipboard.commitStagedFiles(staged, {
+    receivedRoot: "/received",
+    joinPath: (root, name) => `${root}/${name}`,
+    fileExists: () => false,
+    createDirectory() {},
+    move() {},
+    cleanupTransfer() { throw new Error("cleanup-failed") }
+  })
+  assert.equal(planned.length, 1)
+  assert.equal(planned[0].path, "/received/a.txt")
+})
+
+test("commit iCloud signale explicitement un rollback impossible", async () => {
+  let forwardMoves = 0
+  await assert.rejects(
+    clipboard.commitStagedFiles([
+      { transferId: "00112233445566778899aabbccddeeff", filename: "a.txt", stagedPath: "/staging/a.txt" },
+      { transferId: "00112233445566778899aabbccddeeff", filename: "b.txt", stagedPath: "/staging/b.txt" }
+    ], {
+      receivedRoot: "/received",
+      joinPath: (root, name) => `${root}/${name}`,
+      fileExists: () => false,
+      createDirectory() {},
+      move(from) {
+        if (from.startsWith("/staging/")) {
+          forwardMoves++
+          if (forwardMoves === 2) throw new Error("second-move-failed")
+        } else {
+          throw new Error("rollback-failed")
+        }
+      }
+    }),
+    error => error && error.code === "file-commit-rollback-failed"
+  )
 })
 
 test("réception image conserve le fichier et tolère l'échec du presse-papiers", async () => {
