@@ -24,6 +24,11 @@ function isIntegerInRange(value, minimum, maximum) {
   return Number.isInteger(value) && value >= minimum && value <= maximum
 }
 
+function isFlatObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value) &&
+    Object.values(value).every(item => item == null || typeof item !== "object")
+}
+
 function isTransferId(value) {
   return typeof value === "string" && /^[0-9a-f]{32}$/.test(value)
 }
@@ -60,7 +65,7 @@ function timestampDate(value) {
 }
 
 function validateIndex(index) {
-  if (!index || typeof index !== "object" || Array.isArray(index)) return false
+  if (!isFlatObject(index)) return false
   const created = timestampDate(index.created)
   const expires = timestampDate(index.expires)
   if (!created || !expires) return false
@@ -80,7 +85,7 @@ function validateIndex(index) {
 }
 
 function validateFileMeta(meta) {
-  if (!meta || typeof meta !== "object" || Array.isArray(meta)) return false
+  if (!isFlatObject(meta)) return false
   return typeof meta.filename === "string" && meta.filename.length > 0 &&
     meta.filename !== "." && meta.filename !== ".." &&
     !/[\\/]/.test(meta.filename) &&
@@ -337,22 +342,21 @@ function sameObject(first, second) {
 }
 
 function validateTextMeta(meta) {
-  return meta && typeof meta === "object" && !Array.isArray(meta) &&
+  return isFlatObject(meta) &&
     isIntegerInRange(meta.bytes, 0, LIMITS.textBytes) &&
     typeof meta.sha256 === "string" && /^[0-9a-f]{64}$/.test(meta.sha256) &&
     meta.chunkCount === expectedChunkCount(meta.bytes)
 }
 
 function validateManifest(manifest, index) {
-  return manifest && typeof manifest === "object" && !Array.isArray(manifest) &&
+  return isFlatObject(manifest) &&
     manifest.version === 2 && manifest.source === index.source &&
     manifest.destination === index.destination && manifest.kind === index.kind &&
-    manifest.fileCount === index.fileCount && manifest.totalBytes === index.totalBytes &&
-    Object.values(manifest).every(value => value == null || typeof value !== "object")
+    manifest.fileCount === index.fileCount && manifest.totalBytes === index.totalBytes
 }
 
 function validatePreparedChunk(chunk, expectedId) {
-  return chunk && typeof chunk === "object" && !Array.isArray(chunk) &&
+  return isFlatObject(chunk) &&
     chunk.id === expectedId && isIntegerInRange(chunk.bytes, 1, LIMITS.chunkBytes) &&
     typeof chunk.sha256 === "string" && /^[0-9a-f]{64}$/.test(chunk.sha256) &&
     typeof chunk.data === "string" && base64ByteLength(chunk.data) === chunk.bytes
@@ -637,7 +641,8 @@ async function receive(transferId, runtime) {
   const queuePath = firebasePath("queues", "toIphone", transferId)
   const queue = await client.get(queuePath)
   if (!queue) return { ok: false, error: "not-found" }
-  if (queue.version !== 2 || !["text", "files"].includes(queue.kind) || !timestampDate(queue.created)) {
+  if (!isFlatObject(queue) || queue.version !== 2 ||
+    !["text", "files"].includes(queue.kind) || !timestampDate(queue.created)) {
     return { ok: false, error: "invalid-queue" }
   }
 

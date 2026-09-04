@@ -92,6 +92,7 @@ test("flat index validation rejects malformed protocol fields", () => {
   for (const mutation of invalid) {
     assert.equal(clipboard.validateIndex(validIndex(mutation)), false, JSON.stringify(mutation))
   }
+  assert.equal(clipboard.validateIndex(validIndex({ extra: { nested: true } })), false)
 })
 
 test("flat file metadata validation rejects paths, invalid hashes, and wrong chunk counts", () => {
@@ -104,6 +105,7 @@ test("flat file metadata validation rejects paths, invalid hashes, and wrong chu
   for (const mutation of invalid) {
     assert.equal(clipboard.validateFileMeta(validFileMeta(mutation)), false, JSON.stringify(mutation))
   }
+  assert.equal(clipboard.validateFileMeta(validFileMeta({ extra: ["nested"] })), false)
 })
 
 test("incremental SHA-256 matches the shared literal vectors", () => {
@@ -273,6 +275,20 @@ test("publication Firebase interrompue ne rend jamais le transfert visible", asy
   assert.equal(runtime.calls.some(call => call.path.startsWith("queues/")), false)
 })
 
+test("publication Firebase refuse les métadonnées texte imbriquées", async () => {
+  const prepared = preparedHelloTransfer()
+  prepared.text.meta.extra = { nested: true }
+  const runtime = memoryFirebaseRuntime()
+  await assert.rejects(
+    clipboard.publishPreparedTransfer(prepared, runtime),
+    /invalid-text-payload/
+  )
+  assert.equal(
+    runtime.calls.some(call => call.path === `payloads/${prepared.id}/text/meta`),
+    false
+  )
+})
+
 test("relecture Firebase accepte un ordre de propriétés JSON différent", async () => {
   const base = memoryFirebaseRuntime()
   const runtime = {
@@ -430,7 +446,7 @@ test("refuse les entrées d'envoi hors limites sans divulguer le fichier", async
   }
 })
 
-function incomingRuntime({ kind = "text", imageCopyFails = false, deleteFailsOnce = false } = {}) {
+function incomingRuntime({ kind = "text", imageCopyFails = false, deleteFailsOnce = false, nestedObject = null } = {}) {
   const id = "00112233445566778899aabbccddeeff"
   const data = kind === "text" ? Buffer.from("hello") : Buffer.from([0x89, 0x50, 0x4e, 0x47])
   const split = clipboard.splitData(data, nodeAdapter)
@@ -480,6 +496,16 @@ function incomingRuntime({ kind = "text", imageCopyFails = false, deleteFailsOnc
       })
     }
   }
+  const nestedPaths = {
+    queue: `queues/toIphone/${id}`,
+    textMeta: `payloads/${id}/text/meta`,
+    textChunk: `payloads/${id}/text/chunks/c0001`
+  }
+  if (nestedObject) {
+    const logicalPath = nestedPaths[nestedObject]
+    const value = store.get(logicalPath)
+    store.set(logicalPath, { ...value, extra: { nested: true } })
+  }
   const effects = []
   let applied = {}
   let remainingDeleteFailures = deleteFailsOnce ? 3 : 0
@@ -520,6 +546,20 @@ function incomingRuntime({ kind = "text", imageCopyFails = false, deleteFailsOnc
     }
   }
 }
+
+test("réception refuse chaque objet Firebase imbriqué", async () => {
+  const cases = [
+    ["queue", "invalid-queue"],
+    ["textMeta", "receive-failed"],
+    ["textChunk", "receive-failed"]
+  ]
+  for (const [nestedObject, expectedError] of cases) {
+    const runtime = incomingRuntime({ nestedObject })
+    const result = await clipboard.receive(runtime.id, runtime)
+    assert.deepEqual(result, { ok: false, error: expectedError }, nestedObject)
+    assert.equal(runtime.effects.some(effect => effect.startsWith("COPY ")), false, nestedObject)
+  }
+})
 
 test("réception texte enregistre l'idempotence avant la suppression Firebase", async () => {
   const runtime = incomingRuntime({ deleteFailsOnce: true })
