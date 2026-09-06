@@ -10,6 +10,7 @@ const REPO = "shortcuts"
 const BRANCH = "main"
 const REMOTE_FOLDER = "scriptable"
 const MANIFEST_NAME = "ShortcutsLibraryManifest.json"
+const TOKEN_KEY = "GLAD1981.shortcuts.github-token"
 
 const fm = FileManager.iCloud()
 const destinationRoot = fm.documentsDirectory()
@@ -28,6 +29,17 @@ function parentDirectory(path) {
   return index === -1 ? destinationRoot : path.substring(0, index)
 }
 
+function githubHeaders(accept) {
+  if (!Keychain.contains(TOKEN_KEY)) {
+    throw new Error("Jeton GitHub absent : exécutez PublishLibrary pour le configurer")
+  }
+  return {
+    "Accept": accept,
+    "Authorization": `Bearer ${Keychain.get(TOKEN_KEY)}`,
+    "X-GitHub-Api-Version": "2022-11-28"
+  }
+}
+
 function readManifest() {
   if (!fm.fileExists(manifestPath)) return []
   try {
@@ -41,10 +53,7 @@ function readManifest() {
 
 async function fetchJSON(url) {
   const request = new Request(url)
-  request.headers = {
-    "Accept": "application/vnd.github+json",
-    "X-GitHub-Api-Version": "2022-11-28"
-  }
+  request.headers = githubHeaders("application/vnd.github+json")
 
   const response = await request.loadJSON()
 
@@ -57,6 +66,7 @@ async function fetchJSON(url) {
 
 async function fetchText(url) {
   const request = new Request(url)
+  request.headers = githubHeaders("application/vnd.github+json")
   const text = await request.loadString()
 
   if (request.response && request.response.statusCode >= 400) {
