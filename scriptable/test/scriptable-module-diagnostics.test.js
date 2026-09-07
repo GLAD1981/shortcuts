@@ -11,16 +11,22 @@ function storage(files) {
   }
 }
 
-test("sonde les deux stockages et signale un import sans export", () => {
+test("sonde les deux stockages sans dépendre d'un import transférable", () => {
   const report = diagnostics.inspect("ComptesCommuns", {
     iCloud: storage(["/documents/ComptesCommuns.js", "/documents/ScriptableTests.js"]),
-    local: storage(["/documents/ComptesCommuns.js"]),
-    importModule: () => undefined
+    local: storage(["/documents/ComptesCommuns.js"])
   })
 
   assert.deepEqual(report.locations, {
     iCloud: { comptes: true, tests: true },
     local: { comptes: true, tests: false }
   })
-  assert.deepEqual(report.import, { status: "undefined", exports: [] })
+  assert.equal(Object.hasOwn(report, "import"), false)
+})
+
+test("décrit les exports issus d'un appel direct au chargeur", () => {
+  assert.deepEqual(
+    diagnostics.importReport(() => ({ prepare() {}, run() {} })),
+    { status: "ok", exports: ["prepare", "run"] }
+  )
 })

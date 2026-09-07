@@ -21,12 +21,16 @@ function inspect(name, runtime) {
       tests: filePresent(runtime.local, "ScriptableTests.js")
     }
   }
+  return { locations }
+}
+
+function importReport(load) {
   try {
-    const imported = runtime.importModule(name)
+    const imported = load()
     const exports = imported && typeof imported === "object" ? Object.keys(imported).sort() : []
-    return { locations, import: { status: imported == null ? "undefined" : "ok", exports } }
+    return { status: imported == null ? "undefined" : "ok", exports }
   } catch (error) {
-    return { locations, import: { status: "error", exports: [], message: String(error.message || error) } }
+    return { status: "error", exports: [], message: String(error.message || error) }
   }
 }
 
@@ -46,9 +50,9 @@ function present(report) {
 async function run() {
   const report = inspect("ComptesCommuns", {
     iCloud: FileManager.iCloud(),
-    local: FileManager.local(),
-    importModule
+    local: FileManager.local()
   })
+  report.import = importReport(() => importModule("ComptesCommuns"))
   const alert = new Alert()
   alert.title = "Diagnostic Scriptable"
   alert.message = present(report)
@@ -59,7 +63,7 @@ async function run() {
   return report
 }
 
-module.exports = { inspect, present }
+module.exports = { importReport, inspect, present }
 
 if (typeof Script !== "undefined" && Script.name() === "ScriptableModuleDiagnostics") {
   run().catch(error => console.error(`[ScriptableModuleDiagnostics] ${String(error.message || error)}`))
