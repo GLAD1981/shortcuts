@@ -173,5 +173,7 @@ async function runShortcut(script, parameter, overrides) {
 module.exports = { prepare, submit, run, runShortcut }
 
 if (typeof Script !== "undefined" && Script.name() === "ComptesCommuns") {
-  await runShortcut(Script, args.shortcutParameter)
+  runShortcut(Script, args.shortcutParameter).catch(error => {
+    console.error(`[ComptesCommuns] Échec sans contenu : ${String(error && error.message || error)}`)
+  })
 }
